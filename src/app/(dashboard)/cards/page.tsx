@@ -1,8 +1,9 @@
-export default function Page() {
-  return (
-    <div className="space-y-2">
-      <h1 className="text-lg font-semibold">Tarjetas</h1>
-      <p className="text-sm opacity-60">Pendiente: gestor educativo y simuladores (paso 10). La lógica ya vive en services/finance/credit.ts.</p>
-    </div>
-  );
+import { listCreditCards } from "@/actions/cards";
+import { CardManager } from "@/components/cards/card-manager";
+
+export const metadata = { title: "Tarjetas — TrackApp" };
+
+export default async function CardsPage() {
+  const cards = await listCreditCards();
+  return <CardManager cards={cards} />;
 }

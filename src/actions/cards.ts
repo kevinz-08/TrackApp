@@ -9,6 +9,25 @@ import {
   simulateMinimumPayment as calcMinimum,
 } from "@/services/finance/credit";
 
+export async function listCreditCards() {
+  const user = await requireUser();
+  const cards = await prisma.creditCard.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      creditLimit: true,
+      currentDebt: true,
+      statementDay: true,
+      paymentDay: true,
+      annualRate: true,
+    },
+  });
+  return cards;
+}
+
 export async function upsertCreditCard(id: string | null, input: unknown) {
   const user = await requireUser();
   const data = creditCardSchema.parse(input);

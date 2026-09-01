@@ -57,25 +57,33 @@ export function simulateMinimumPayment(
   const i = monthlyRate(annualRate);
   const schedule: MinimumPaymentProjection["schedule"] = [];
 
+  /*
+   * Si el pago mínimo no supera a la tasa mensual, la deuda NUNCA baja: cada
+   * mes se paga menos de lo que se genera. Es una propiedad de los dos
+   * porcentajes, no del saldo, así que se decide antes de simular.
+   *
+   * Esta comprobación va aquí y no dentro del bucle a propósito. Hacerla por
+   * iteración da un falso positivo en la cola: con saldos de pocos pesos el
+   * redondeo a enteros iguala pago e interés (1 contra 1) y una deuda de 27
+   * pesos se reportaba como "nunca se acaba".
+   */
+  if (minimumPercent <= i) {
+    return { months: 0, totalPaid: 0, totalInterest: 0, neverEnds: true, schedule };
+  }
+
   let balance = debt;
   let totalPaid = 0;
   let totalInterest = 0;
   let month = 0;
 
-  while (balance > 1 && month < maxMonths) {
+  // Se corta en el último peso: por debajo de eso el saldo es polvo de
+  // redondeo, no deuda.
+  while (balance >= 1 && month < maxMonths) {
     month++;
     const interest = Math.round(balance * i);
-    const payment = Math.max(Math.round(balance * minimumPercent), 1);
-
-    if (payment <= interest) {
-      return {
-        months: month,
-        totalPaid: Math.round(totalPaid),
-        totalInterest: Math.round(totalInterest),
-        neverEnds: true,
-        schedule,
-      };
-    }
+    // El pago cubre al menos el interés más un peso, para que la aritmética
+    // entera no estanque la cola de la amortización.
+    const payment = Math.min(balance + interest, Math.max(Math.round(balance * minimumPercent), interest + 1));
 
     balance = balance + interest - payment;
     totalPaid += payment;
