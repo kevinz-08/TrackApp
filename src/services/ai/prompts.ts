@@ -15,7 +15,8 @@ export function renderSnapshot(s: Snapshot) {
     `PERIODO: ${s.period.toISOString().slice(0, 7)}`,
     `INGRESOS: ${income}`,
     `EGRESOS: ${expense}`,
-    `BALANCE: ${income - expense}`,
+    `AHORRADO EN METAS: ${s.savings}`,
+    `BALANCE: ${income - expense - s.savings}`,
     ``,
     `GASTO POR CATEGORIA:`,
     ...s.byCategory.map(
@@ -36,6 +37,9 @@ REGLAS:
 - Si te falta información para responder, usa las herramientas disponibles.
 - No juzgues ni regañes al usuario por sus gastos. Informa y sugiere.
 - Sé breve: dos o tres frases salvo que pidan un análisis detallado.
+- Responde en TEXTO PLANO. Nada de markdown: sin asteriscos, sin almohadillas,
+  sin viñetas con guion. La interfaz los muestra tal cual y se ven como basura.
+- Los aportes a metas NO son gasto: son ahorro y van en su propia cifra.
 - Si detectas un riesgo financiero real (deuda creciendo, gasto muy por encima del ingreso), menciónalo con calma y una acción concreta.
 
 DATOS FINANCIEROS ACTUALES:

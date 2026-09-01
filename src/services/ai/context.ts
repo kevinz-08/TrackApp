@@ -8,17 +8,22 @@ import { monthStart } from "@/lib/dates";
 export async function buildSnapshot(userId: string) {
   const start = monthStart();
 
-  const [byCategory, totals, goals, subs, cards, categories] = await Promise.all([
+  const [byCategory, totals, savingsRow, goals, subs, cards, categories] = await Promise.all([
     prisma.transaction.groupBy({
       by: ["categoryId"],
-      where: { userId, type: "EXPENSE", occurredAt: { gte: start } },
+      // Mismo criterio que el panel: ahorrar no es gastar (ver balance.ts).
+      where: { userId, type: "EXPENSE", occurredAt: { gte: start }, savingGoalId: null },
       _sum: { amount: true },
       orderBy: { _sum: { amount: "desc" } },
       take: 8,
     }),
     prisma.transaction.groupBy({
       by: ["type"],
-      where: { userId, occurredAt: { gte: start } },
+      where: { userId, occurredAt: { gte: start }, savingGoalId: null },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { userId, occurredAt: { gte: start }, savingGoalId: { not: null } },
       _sum: { amount: true },
     }),
     prisma.savingGoal.findMany({
@@ -42,6 +47,7 @@ export async function buildSnapshot(userId: string) {
     period: start,
     byCategory,
     totals,
+    savings: savingsRow._sum.amount ?? 0,
     goals,
     subs,
     cards,
