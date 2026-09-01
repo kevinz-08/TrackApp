@@ -51,6 +51,20 @@ gráficos funcionan de punta a punta contra la base real. Falta la UI de edició
 de transacciones y categorías, la del chat, y las de metas, tarjetas y
 suscripciones — su lógica de negocio ya está escrita detrás.
 
+## Instalar en el iPhone
+
+Los iconos y el manifest están listos, pero **iOS solo permite añadir a la
+pantalla de inicio desde HTTPS**: `localhost` no sirve desde el teléfono. Hay que
+desplegar (o exponer el puerto por un túnel HTTPS) antes de este paso.
+
+1. Abrir la URL en **Safari** (Chrome en iOS no ofrece la opción).
+2. Compartir → **Añadir a pantalla de inicio**.
+3. Sin este paso no hay notificaciones push en iOS, así que todo el sistema de
+   alertas queda inutilizado.
+
+Para regenerar los iconos si cambia la marca, la fuente vectorial está en
+`public/icons/icon.svg` y `public/icons/maskable.svg`.
+
 ## Configurar el atajo de iOS
 
 1. Entrar a `/settings/api-keys` y generar un token (se muestra una sola vez).
