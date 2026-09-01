@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# el ejemplo de entorno sí se versiona
+!.env.example
+
+# tauri (fase posterior al MVP)
+/src-tauri/target

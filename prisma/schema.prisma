@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Usuario y credenciales
+// ─────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String
+  currency      String   @default("COP")
+  locale        String   @default("es-CO")
+  monthStartDay Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  apiKeys        ApiKey[]
+  accounts       Account[]
+  categories     Category[]
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+  creditCards    CreditCard[]
+  savingGoals    SavingGoal[]
+  chatMessages   ChatMessage[]
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  keyHash    String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Cuentas y categorías
+// ─────────────────────────────────────────────
+
+enum AccountType {
+  CASH
+  BANK
+  DIGITAL_WALLET
+  CREDIT_CARD
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  userId         String
+  name           String
+  type           AccountType
+  initialBalance Int         @default(0)
+  isArchived     Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  creditCard   CreditCard?
+
+  @@index([userId])
+}
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  userId    String
+  name      String
+  kind      CategoryKind @default(EXPENSE)
+  color     String       @default("#888780")
+  icon      String?
+  isDefault Boolean      @default(false)
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+  budgets        Budget[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Transacciones
+// ─────────────────────────────────────────────
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionSource {
+  MANUAL
+  QUICK_LOG
+  RECURRING
+  AI_CHAT
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  userId      String
+  accountId   String?
+  categoryId  String?
+  type        TransactionType
+  amount      Int
+  description String
+  rawInput    String?
+  occurredAt  DateTime          @default(now())
+  source      TransactionSource @default(MANUAL)
+  isFixed     Boolean           @default(false)
+  needsReview Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account         Account?       @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  category        Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringRule   RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  recurringRuleId String?
+  savingGoal      SavingGoal?    @relation(fields: [savingGoalId], references: [id], onDelete: SetNull)
+  savingGoalId    String?
+
+  @@index([userId, occurredAt])
+  @@index([userId, categoryId])
+  @@index([userId, type, occurredAt])
+}
+
+// ─────────────────────────────────────────────
+// Recurrentes y suscripciones
+// ─────────────────────────────────────────────
+
+enum Frequency {
+  WEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model RecurringRule {
+  id             String          @id @default(cuid())
+  userId         String
+  categoryId     String?
+  name           String
+  type           TransactionType
+  amount         Int
+  frequency      Frequency       @default(MONTHLY)
+  dayOfMonth     Int             @default(1)
+  isSubscription Boolean         @default(false)
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  isActive       Boolean         @default(true)
+  cancelledAt    DateTime?
+  createdAt      DateTime        @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([userId, isActive])
+  @@index([nextRunAt])
+}
+
+// ─────────────────────────────────────────────
+// Tarjetas de crédito (módulo educativo)
+// ─────────────────────────────────────────────
+
+model CreditCard {
+  id           String   @id @default(cuid())
+  userId       String
+  accountId    String?  @unique
+  name         String
+  description  String?
+  creditLimit  Int      @default(0)
+  currentDebt  Int      @default(0)
+  statementDay Int      @default(1)
+  paymentDay   Int      @default(15)
+  annualRate   Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Metas de ahorro
+// ─────────────────────────────────────────────
+
+model SavingGoal {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  targetAmount  Int
+  currentAmount Int       @default(0)
+  imageUrl      String?
+  imagePublicId String?
+  targetDate    DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Presupuestos
+// ─────────────────────────────────────────────
+
+model Budget {
+  id         String @id @default(cuid())
+  categoryId String
+  period     String
+  limit      Int
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, period])
+}
+
+// ─────────────────────────────────────────────
+// Chat con IA
+// ─────────────────────────────────────────────
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      ChatRole
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
