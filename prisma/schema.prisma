@@ -28,6 +28,26 @@ model User {
   creditCards    CreditCard[]
   savingGoals    SavingGoal[]
   chatMessages   ChatMessage[]
+  pushSubscriptions PushSubscription[]
+}
+
+/**
+ * Una suscripción push por dispositivo/navegador. El endpoint es único: el
+ * mismo teléfono reinstalando la PWA genera otro, y los caducados se borran
+ * cuando el servicio de push responde 404 o 410.
+ */
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model ApiKey {
