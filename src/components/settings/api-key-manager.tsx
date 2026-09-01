@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { generateApiKey, revokeApiKey } from "@/actions/settings";
+import { Button } from "@/components/ui/button";
+import { Card, MicroLabel } from "@/components/ui/surface";
 
 type KeyRow = {
   id: string;
@@ -17,14 +19,15 @@ export function ApiKeyManager({ keys }: { keys: KeyRow[] }) {
   const [pending, startTransition] = useTransition();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex gap-2">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="flex-1 rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+          aria-label="Nombre del token"
+          className="rounded-btn border-hairline bg-surface text-ink duration-fast ease-standard focus:border-ink min-w-0 flex-1 border px-3.5 py-3 text-sm transition-colors"
         />
-        <button
+        <Button
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
@@ -32,40 +35,45 @@ export function ApiKeyManager({ keys }: { keys: KeyRow[] }) {
               setToken(res.token);
             })
           }
-          className="rounded-lg bg-[#1d9e75] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           Generar
-        </button>
+        </Button>
       </div>
 
       {token && (
-        <div className="rounded-lg border border-[#1d9e75] p-3 text-sm">
-          <p className="mb-1 font-medium">Cópialo ahora: no volverá a mostrarse.</p>
-          <code className="break-all">{token}</code>
-        </div>
+        /* Borde de tinta, no de color: en el sistema monocromo lo urgente se
+           marca con contraste, no con matiz. */
+        <Card className="animate-rise border-ink p-4">
+          <MicroLabel className="text-ink">Cópialo ahora — no vuelve a mostrarse</MicroLabel>
+          <code className="text-ink mt-2 block font-mono text-[12.5px] break-all">{token}</code>
+        </Card>
       )}
 
-      <ul className="divide-y divide-black/10 text-sm dark:divide-white/15">
+      <ul className="flex flex-col gap-1.5">
         {keys.map((k) => (
-          <li key={k.id} className="flex items-center justify-between py-2">
-            <span>
-              {k.name}
-              <span className="block text-xs opacity-50">
-                {k.revokedAt
-                  ? "Revocado"
-                  : k.lastUsedAt
-                    ? `Último uso: ${new Date(k.lastUsedAt).toLocaleString("es-CO")}`
-                    : "Sin usar"}
+          <li key={k.id}>
+            <Card className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="min-w-0">
+                <span className="text-ink block truncate text-sm">{k.name}</span>
+                <span className="text-ink-3 block truncate text-[11.5px]">
+                  {k.revokedAt
+                    ? "Revocado"
+                    : k.lastUsedAt
+                      ? `Último uso: ${new Date(k.lastUsedAt).toLocaleString("es-CO")}`
+                      : "Sin usar"}
+                </span>
               </span>
-            </span>
-            {!k.revokedAt && (
-              <button
-                onClick={() => startTransition(() => revokeApiKey(k.id))}
-                className="text-xs opacity-60 hover:opacity-100"
-              >
-                Revocar
-              </button>
-            )}
+              {!k.revokedAt && (
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  onClick={() => startTransition(() => revokeApiKey(k.id))}
+                  disabled={pending}
+                >
+                  Revocar
+                </Button>
+              )}
+            </Card>
           </li>
         ))}
       </ul>

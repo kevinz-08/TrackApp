@@ -1,5 +1,6 @@
 import { listApiKeys } from "@/actions/settings";
 import { ApiKeyManager } from "@/components/settings/api-key-manager";
+import { MicroLabel } from "@/components/ui/surface";
 
 export const metadata = { title: "API Keys — TrackApp" };
 
@@ -9,10 +10,10 @@ export default async function ApiKeysPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-lg font-semibold">Tokens para Atajos</h1>
-        <p className="text-sm opacity-60">
-          Cada token solo habilita <code>/api/quick-log</code>. No sirve para leer datos ni
-          para el chat, y se muestra una sola vez.
+        <MicroLabel>Tokens para Atajos</MicroLabel>
+        <p className="text-ink-2 max-w-[60ch] text-[13px] leading-[18px]">
+          Cada token solo habilita <code className="text-ink font-mono">/api/quick-log</code>. No
+          sirve para leer datos ni para el chat, y se muestra una sola vez.
         </p>
       </div>
       <ApiKeyManager keys={keys} />

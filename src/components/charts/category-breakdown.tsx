@@ -1,35 +1,30 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useDarkMode } from "./use-dark-mode";
 import { ChartTooltip } from "./chart-tooltip";
-import { CHART_TOKENS, seriesColor } from "@/lib/chart-palette";
+import { monoTokens, rampStep } from "@/lib/chart-tokens";
 import { formatCompactCOP, formatCOP } from "@/lib/money";
+import { EmptyState } from "@/components/ui/surface";
 
 export type CategoryDatum = { name: string; total: number; color: string };
 
 /**
  * El trabajo de este dato es COMPARAR MAGNITUDES, no distinguir identidades: la
- * categoría ya está escrita en el eje. Por eso son barras de un solo hue y no
- * una dona de ocho colores — con ocho porciones ordenadas por monto la
- * adyacencia depende de los datos, y ninguna paleta de ocho supera el umbral de
- * daltonismo en modo "todos los pares".
+ * categoría ya está escrita en el eje. Por eso son barras horizontales y no una
+ * dona —los nombres largos no caben alrededor de un anillo en 390pt.
+ *
+ * Bajo el sistema monocromo la barra toma su escalón de la rampa por RANGO, y
+ * las filas ya vienen ordenadas por monto descendente: el gasto mayor es el más
+ * oscuro, así la magnitud queda codificada dos veces (longitud y luminancia).
+ * A partir del sexto se satura el último escalón; no se genera un séptimo tono.
  */
 export function CategoryBreakdown({ data }: { data: CategoryDatum[] }) {
   const isDark = useDarkMode();
-  const t = isDark ? CHART_TOKENS.dark : CHART_TOKENS.light;
-  const fill = seriesColor(0, isDark);
+  const t = monoTokens(isDark);
 
   if (data.length === 0) {
-    return <EmptyChart message="Sin gastos registrados este mes." />;
+    return <EmptyState message="Sin gastos registrados este mes." />;
   }
 
   const height = Math.max(140, data.length * 34);
@@ -45,12 +40,9 @@ export function CategoryBreakdown({ data }: { data: CategoryDatum[] }) {
             width={104}
             tickLine={false}
             axisLine={false}
-            tick={{ fill: t.textSecondary, fontSize: 12 }}
+            tick={{ fill: t.inkSecondary, fontSize: 12 }}
           />
-          <Tooltip
-            content={<ChartTooltip />}
-            cursor={{ fill: isDark ? "#ffffff0d" : "#0000000a" }}
-          />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: t.cursor }} />
           <Bar
             dataKey="total"
             name="Gasto"
@@ -60,12 +52,12 @@ export function CategoryBreakdown({ data }: { data: CategoryDatum[] }) {
             label={{
               position: "right",
               formatter: (v: unknown) => formatCompactCOP(Number(v)),
-              fill: t.textSecondary,
+              fill: t.inkSecondary,
               fontSize: 11,
             }}
           >
-            {data.map((d) => (
-              <Cell key={d.name} fill={fill} />
+            {data.map((d, i) => (
+              <Cell key={d.name} fill={rampStep(i, isDark)} />
             ))}
           </Bar>
         </BarChart>
@@ -80,17 +72,10 @@ export function CategoryBreakdown({ data }: { data: CategoryDatum[] }) {
   );
 }
 
-export function EmptyChart({ message }: { message: string }) {
-  return (
-    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-black/10 text-sm opacity-60 dark:border-white/15">
-      {message}
-    </div>
-  );
-}
-
 /**
- * Vista de tabla: es lo que hace accesible el gráfico cuando el color no basta
- * (tres de los hues claros quedan por debajo de 3:1 contra la superficie).
+ * Vista de tabla: es lo que hace accesible el gráfico cuando la luminancia no
+ * basta —bajo el sol, dos escalones adyacentes se confunden— y lo que permite
+ * leer el valor exacto sin depender del tooltip.
  */
 export function TableView({
   caption,
@@ -102,15 +87,15 @@ export function TableView({
   rows: string[][];
 }) {
   return (
-    <details className="mt-2">
-      <summary className="cursor-pointer text-xs opacity-60 hover:opacity-100">
+    <details className="mt-3">
+      <summary className="text-ink-3 duration-fast ease-standard hover:text-ink cursor-pointer text-[11px] leading-[14px] font-semibold tracking-[0.14em] uppercase transition-colors">
         Ver como tabla
       </summary>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full text-xs">
           <caption className="sr-only">{caption}</caption>
           <thead>
-            <tr className="text-left opacity-60">
+            <tr className="text-ink-3 text-left">
               {head.map((h) => (
                 <th key={h} className="py-1 pr-4 font-medium">
                   {h}
@@ -120,9 +105,12 @@ export function TableView({
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i} className="border-t border-black/5 dark:border-white/10">
+              <tr key={i} className="border-hairline border-t">
                 {r.map((cell, j) => (
-                  <td key={j} className={`py-1 pr-4 ${j > 0 ? "tabular-nums" : ""}`}>
+                  <td
+                    key={j}
+                    className={`py-1.5 pr-4 ${j > 0 ? "text-ink tabular-nums" : "text-ink-2"}`}
+                  >
                     {cell}
                   </td>
                 ))}

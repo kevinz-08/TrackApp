@@ -1,26 +1,193 @@
 @import "tailwindcss";
 
+/**
+ * Sistema monocromo TrackApp.
+ *
+ * Cinco valores base por tema: blanco, off-black y tres grises. Todo lo demás
+ * es un rol derivado de esos cinco. El tema oscuro NO es una inversión: sus
+ * escalones están elegidos contra #0a0a0b.
+ *
+ * Reglas no negociables del sistema:
+ *  - No hay color acento. La jerarquía la dan tipografía, luminancia y espacio.
+ *  - En claro la página es gris y el blanco flota encima (tarjetas, sheets).
+ *  - Solo se animan `transform` y `opacity`.
+ *  - Ninguna cifra sin `tabular-nums`.
+ *  - Ningún cubic-bezier literal fuera de este archivo.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* — Base: cinco valores, tema claro — */
+  --white: #ffffff;
+  --ink: #0a0a0b;
+  --grey-100: #f2f2f3;
+  --grey-300: #dedee1;
+  --grey-500: #6e6e73;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* — Roles — */
+  --ground: var(--grey-100);
+  --surface: var(--white);
+  --sunken: #e9e9eb;
+  --hairline: var(--grey-300);
+  --ink-1: var(--ink);
+  --ink-2: var(--grey-500);
+  --ink-3: #9a9aa0;
+
+  /* — Rampa de gráfico. El orden ES la magnitud descendente. — */
+  --chart-1: #0a0a0b;
+  --chart-2: #3a3a3e;
+  --chart-3: #5c5c61;
+  --chart-4: #8a8a90;
+  --chart-5: #b4b4b9;
+  --chart-6: #dedee1;
+
+  --shimmer: rgb(10 10 11 / 0.07);
+  --elevation: 0 1px 2px rgb(10 10 11 / 0.05), 0 8px 24px -12px rgb(10 10 11 / 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --ground: #0a0a0b;
+    --surface: #161618;
+    --sunken: #202023;
+    --hairline: #2a2a2e;
+    --ink-1: #f7f7f8; /* nunca blanco puro: sobre OLED engorda el glifo */
+    --ink-2: #9a9aa0;
+    --ink-3: #6e6e75;
+
+    --chart-1: #f7f7f8;
+    --chart-2: #c9c9ce;
+    --chart-3: #9a9aa0;
+    --chart-4: #6e6e75;
+    --chart-5: #4d4d53;
+    --chart-6: #35353b;
+
+    --shimmer: rgb(255 255 255 / 0.08);
+    --elevation: 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 32px -16px rgb(0 0 0 / 0.8);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  /* SF Pro en iOS: ya está en el dispositivo y trae optical sizing entre Text
+     y Display a los 20pt. Esa óptica es lo que sostiene la jerarquía sin color. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+
+  --radius-card: 14px;
+  --radius-btn: 12px;
+  --radius-chip: 8px;
+
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --shadow-lift: var(--elevation);
+
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-rise: rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Duraciones del sistema. Nada supera 400ms salvo el trazado del checkmark. */
+@utility duration-instant {
+  transition-duration: 80ms;
+}
+@utility duration-fast {
+  transition-duration: 140ms;
+}
+@utility duration-base {
+  transition-duration: 220ms;
+}
+@utility duration-slow {
+  transition-duration: 320ms;
+}
+@utility duration-page {
+  transition-duration: 380ms;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* El dato aparece creciendo desde su línea base, no apareciendo de la nada. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: scaleY(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink-1);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* El foco se ve siempre: sin color acento, el anillo es de tinta. */
+  :focus-visible {
+    outline: 2px solid var(--ink-1);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--ink-1);
+    color: var(--ground);
+  }
+}
+
+/**
+ * Con reduced-motion no se desactiva el feedback: se cambia de canal. Todo
+ * desplazamiento y escala pasa a crossfade; el shimmer pasa a un pulso.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-shimmer {
+    animation: pulse-dim 1.4s ease-in-out infinite !important;
+    animation-duration: 1.4s !important;
+    transform: none !important;
+  }
+}
+
+@keyframes pulse-dim {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
