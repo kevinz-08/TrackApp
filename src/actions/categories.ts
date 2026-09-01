@@ -27,3 +27,26 @@ export async function deleteCategory(id: string) {
   await prisma.category.delete({ where: { id, userId: user.id, isDefault: false } });
   revalidatePath("/categories");
 }
+
+/** Categorías del usuario, para los selectores de la interfaz. */
+export async function listCategories() {
+  const user = await requireUser();
+  return prisma.category.findMany({
+    where: { userId: user.id },
+    orderBy: [{ kind: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, kind: true, color: true, icon: true, isDefault: true },
+  });
+}
+
+/** Cuántas transacciones usan cada categoría: se muestra antes de borrar. */
+export async function categoryUsage() {
+  const user = await requireUser();
+  const rows = await prisma.transaction.groupBy({
+    by: ["categoryId"],
+    where: { userId: user.id },
+    _count: { _all: true },
+  });
+  return Object.fromEntries(
+    rows.filter((r) => r.categoryId).map((r) => [r.categoryId as string, r._count._all]),
+  );
+}
