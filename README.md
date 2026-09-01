@@ -38,28 +38,18 @@ openssl rand -hex 32      # CRON_SECRET
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | Migración de desarrollo |
 | `pnpm db:seed` | Categorías base y usuario inicial |
+| `pnpm db:demo` | Carga movimientos de ejemplo para ver el panel con forma |
+| `pnpm db:demo:clear` | Borra todas las transacciones del usuario |
 | `pnpm db:studio` | Explorador de la base |
 
 ## Estado
 
-Andamiaje completo y compilando. Implementado:
+El detalle completo de lo hecho y lo pendiente está en **[TASKS.md](TASKS.md)**.
 
-- Schema de Prisma completo con seed de categorías base.
-- Auth.js v5 con credenciales, sesión JWT y guardias (`requireUser`, `requireApiKey`).
-- API Keys para Atajos: generación, hash SHA-256, revocación y registro de último uso.
-- `POST /api/quick-log` y `GET /api/quick-log/summary` con parser determinista,
-  fallback a Groq, categorización diferida y control de tasa.
-- `POST /api/chat` con snapshot financiero y streaming; herramientas de function
-  calling con `userId` inyectado desde la sesión.
-- Crons de recurrentes y alertas, protegidos por `CRON_SECRET`.
-- Servicios de balance, agregaciones para gráficos y simuladores de crédito
-  (cuotas diferidas y pago mínimo).
-- Server Actions de transacciones, categorías, metas, tarjetas y ajustes.
-- Manifest PWA y shell del dashboard.
-
-Pendiente (siguiendo el orden de construcción del §8 del doc técnico):
-gráficos con Recharts, UI de categorías/metas/tarjetas/chat, service worker con
-cola offline e íconos PWA, y Web Push.
+En resumen: el núcleo transaccional, el endpoint de quick-log y el panel con
+gráficos funcionan de punta a punta contra la base real. Falta la UI de edición
+de transacciones y categorías, la del chat, y las de metas, tarjetas y
+suscripciones — su lógica de negocio ya está escrita detrás.
 
 ## Configurar el atajo de iOS
 

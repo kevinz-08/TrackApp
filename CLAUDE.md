@@ -7,6 +7,7 @@ guardada, sin abrir la app.
 Documentos fuente (mandan sobre este archivo si hay conflicto):
 - `Track-App-noTecnico.md` — visión, alcance y prioridades de producto.
 - `TrackApp-Tecnico.md` — arquitectura, schema y contratos del MVP.
+- `TASKS.md` — estado detallado: qué está hecho y qué falta. Mantenerlo al día.
 
 ## Stack
 
@@ -35,6 +36,7 @@ pnpm build          # prisma generate && next build
 pnpm typecheck      # tsc --noEmit
 pnpm db:migrate     # prisma migrate dev
 pnpm db:seed        # categorías base + usuario inicial
+pnpm db:demo        # movimientos de ejemplo (db:demo:clear los borra)
 pnpm db:studio      # explorar la base
 ```
 
@@ -45,6 +47,14 @@ pnpm db:studio      # explorar la base
   migrar). Prisma 7 ya no acepta `url` dentro de `datasource`: vive en
   `prisma.config.ts`.
 - El build de Vercel **debe** ser `prisma generate && next build`.
+
+## Gráficos
+
+Los colores de serie salen de `lib/chart-palette.ts`, no de valores sueltos. El
+orden de los ocho slots es el mecanismo que garantiza la separación bajo
+daltonismo, no una decisión estética: no reordenarlo ni añadir un noveno color.
+El texto (leyendas, ejes, etiquetas) usa tokens de texto, nunca el color de la
+serie; la identidad la aporta la marca de color que va al lado.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

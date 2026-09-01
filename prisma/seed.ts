@@ -9,19 +9,23 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
 
-// Categorías base del documento de visión (§4.3)
+// Categorías base del documento de visión (§4.3).
+// Los colores son los ocho slots del orden fijo validado en lib/chart-palette.ts:
+// no reasignar a ojo, el orden es lo que garantiza la separación bajo daltonismo.
 const CATEGORIES: Array<{ name: string; kind: CategoryKind; color: string; icon: string }> = [
-  { name: "Hogar", kind: "EXPENSE", color: "#8b7355", icon: "house" },
-  { name: "Alimentación", kind: "EXPENSE", color: "#e0803a", icon: "utensils" },
-  { name: "Transporte", kind: "EXPENSE", color: "#3a86e0", icon: "bus" },
-  { name: "Suscripciones", kind: "EXPENSE", color: "#9b5de5", icon: "repeat" },
-  { name: "Salidas y Ocio", kind: "EXPENSE", color: "#e05a8b", icon: "party-popper" },
-  { name: "Salud", kind: "EXPENSE", color: "#2fb37a", icon: "heart-pulse" },
-  { name: "Educación", kind: "EXPENSE", color: "#4d67d6", icon: "graduation-cap" },
-  { name: "Otros", kind: "EXPENSE", color: "#888780", icon: "circle-dashed" },
-  { name: "Salario", kind: "INCOME", color: "#1d9e75", icon: "banknote" },
-  { name: "Freelance", kind: "INCOME", color: "#16a394", icon: "laptop" },
-  { name: "Otros ingresos", kind: "INCOME", color: "#7a9e1d", icon: "plus-circle" },
+  { name: "Alimentación", kind: "EXPENSE", color: "#2a78d6", icon: "utensils" },
+  { name: "Transporte", kind: "EXPENSE", color: "#eb6834", icon: "bus" },
+  { name: "Hogar", kind: "EXPENSE", color: "#1baf7a", icon: "house" },
+  { name: "Suscripciones", kind: "EXPENSE", color: "#eda100", icon: "repeat" },
+  { name: "Salidas y Ocio", kind: "EXPENSE", color: "#e87ba4", icon: "party-popper" },
+  { name: "Salud", kind: "EXPENSE", color: "#008300", icon: "heart-pulse" },
+  { name: "Educación", kind: "EXPENSE", color: "#4a3aa7", icon: "graduation-cap" },
+  { name: "Otros", kind: "EXPENSE", color: "#e34948", icon: "circle-dashed" },
+  // Los ingresos nunca comparten gráfico con los egresos: reusan los tres
+  // primeros slots, que son los que validan en modo "todos los pares".
+  { name: "Salario", kind: "INCOME", color: "#2a78d6", icon: "banknote" },
+  { name: "Freelance", kind: "INCOME", color: "#eb6834", icon: "laptop" },
+  { name: "Otros ingresos", kind: "INCOME", color: "#1baf7a", icon: "plus-circle" },
 ];
 
 async function main() {
@@ -39,11 +43,24 @@ async function main() {
   });
 
   for (const c of CATEGORIES) {
-    await prisma.category.upsert({
+    const existing = await prisma.category.findUnique({
       where: { userId_name: { userId: user.id, name: c.name } },
-      update: {},
-      create: { ...c, isDefault: true, userId: user.id },
+      select: { id: true, isDefault: true },
     });
+
+    if (!existing) {
+      await prisma.category.create({ data: { ...c, isDefault: true, userId: user.id } });
+      continue;
+    }
+
+    // Solo se resincronizan las categorías por defecto: si el usuario
+    // personalizó color o ícono, el seed no lo pisa.
+    if (existing.isDefault) {
+      await prisma.category.update({
+        where: { id: existing.id },
+        data: { color: c.color, icon: c.icon, kind: c.kind },
+      });
+    }
   }
 
   await prisma.account.upsert({
