@@ -9,7 +9,8 @@ export async function expensesByCategory(userId: string, reference = new Date())
   const [rows, categories] = await Promise.all([
     prisma.transaction.groupBy({
       by: ["categoryId"],
-      where: { userId, type: "EXPENSE", occurredAt: { gte, lt } },
+      // Los aportes a metas quedan fuera: ahorrar no es gastar (ver balance.ts).
+      where: { userId, type: "EXPENSE", occurredAt: { gte, lt }, savingGoalId: null },
       _sum: { amount: true },
       orderBy: { _sum: { amount: "desc" } },
     }),
@@ -58,6 +59,7 @@ export async function topTransactions(userId: string, take = 5, reference = new 
     where: {
       userId,
       type: "EXPENSE",
+      savingGoalId: null,
       occurredAt: { gte: monthStart(reference), lt: monthEnd(reference) },
     },
     orderBy: { amount: "desc" },
