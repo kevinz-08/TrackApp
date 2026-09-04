@@ -12,7 +12,7 @@
  * son cinco segundos.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `trackapp-static-${VERSION}`;
 const DATA_CACHE = `trackapp-data-${VERSION}`;
 
@@ -159,6 +159,32 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET") return;
 
+  // El build de Next: red primero, y la caché solo como red de seguridad.
+  //
+  // NO va con los estáticos, aunque lo parezca. `next dev` sirve sus chunks en
+  // esta misma ruta y reutiliza el nombre del archivo entre ediciones, así que
+  // con caché primero la primera versión de un chunk se queda servida para
+  // siempre: el HTML llega recién renderizado del servidor y el JS sale de la
+  // caché, que es exactamente la discordancia de hidratación que React reporta.
+  // En producción no se pierde nada: los nombres llevan hash y `fetch` resuelve
+  // contra la caché HTTP —son `immutable`— sin salir a la red.
+  if (url.pathname.startsWith("/_next/")) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        // Sin red se tira de lo cacheado; si tampoco está, falla como fallaría
+        // sin service worker.
+        .catch(() => caches.match(request).then((hit) => hit ?? Response.error())),
+    );
+    return;
+  }
+
   // Datos de la API: red primero, caché como red de seguridad.
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
@@ -180,7 +206,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Estáticos: caché primero, que es donde gana tiempo el arranque.
+  // Lo demás —iconos, manifest, imágenes—: caché primero, que es donde gana
+  // tiempo el arranque. Aquí sí vale, porque son archivos que solo cambian
+  // cuando se cambian a mano, no en cada edición.
   event.respondWith(
     caches.match(request).then(
       (hit) =>
