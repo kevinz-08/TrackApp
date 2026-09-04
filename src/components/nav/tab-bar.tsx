@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -29,10 +30,11 @@ import { cn } from "@/lib/utils";
  * seguido —fechas de corte, cupo usado, simular antes de comprar—. Y ese
  * momento de "simular antes de comprar" solo ocurre si está a un toque.
  *
- * Alto total 72px + safe area (antes 60px): la columna icono/etiqueta iba justa
- * y en pantallas estrechas la barra se leía cortada. El suelo del padding
- * inferior sube a 10px para los dispositivos sin indicador de inicio, que no
- * aportan `safe-area-inset-bottom`.
+ * El alto no se escribe en ningun sitio: la barra lo mide y lo publica en
+ * `--tabbar-h` (ver `useTabBarHeight`), que es de donde sale la separacion
+ * entre el contenido y la barra. El suelo del padding inferior son 10px para
+ * los dispositivos sin indicador de inicio, que no aportan
+ * `safe-area-inset-bottom`.
  */
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Inicio", icon: House },
@@ -45,11 +47,47 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
 const isActive = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+/**
+ * Publica el alto real de la barra en `--tabbar-h`, que es de donde sale el
+ * hueco inferior del contenido (`main`) y el anclaje del compositor del chat.
+ *
+ * Se mide en vez de escribirse: `offsetHeight` ya incluye el borde y el
+ * padding inferior con la safe area, y el observer recoge cualquier cambio
+ * posterior —rotacion, Dynamic Type, una etiqueta que envuelve—. La constante
+ * de `globals.css` solo cubre el primer pintado.
+ */
+function useTabBarHeight() {
+  const ref = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const nav = ref.current;
+    if (!nav) return;
+
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--tabbar-h", `${nav.offsetHeight}px`);
+
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(nav);
+
+    return () => {
+      observer.disconnect();
+      // Al desmontar vuelve a mandar la constante del tema: dejar un pixelaje
+      // fijo de una barra que ya no existe descuadra las pantallas sin barra.
+      root.style.removeProperty("--tabbar-h");
+    };
+  }, []);
+
+  return ref;
+}
+
 export function TabBar() {
   const pathname = usePathname();
+  const ref = useTabBarHeight();
 
   return (
     <nav
+      ref={ref}
       aria-label="Secciones"
       className="border-hairline bg-surface/92 fixed inset-x-0 bottom-0 z-30 border-t [padding-bottom:max(10px,env(safe-area-inset-bottom))] backdrop-blur-xl"
     >

@@ -31,8 +31,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </header>
 
-      {/* pb-28 reserva el alto de la tab bar; el safe-area lo añade la barra. */}
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-6 pb-28">{children}</main>
+      {/* El hueco inferior sale del alto real de la barra, no de un número mágico. */}
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-6 pb-[calc(var(--tabbar-h)+1.5rem)]">
+        {children}
+      </main>
 
       <TabBar />
     </div>
