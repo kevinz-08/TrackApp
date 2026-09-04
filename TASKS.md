@@ -12,13 +12,13 @@ del §4 del doc de visión.
 
 ## Resumen
 
-| Fase                           | Estado                                     |
-| ------------------------------ | ------------------------------------------ |
-| Infraestructura y andamiaje    | Completa                                   |
-| Fase 1 — MVP funcional         | Completa                                   |
-| Fase 2 — Producto completo     | Completa salvo entrega real de push        |
-| Fase 3 — Inteligencia avanzada | Sin empezar                                |
-| Fase 4 — Apertura multiusuario | Condicional, no evaluada                   |
+| Fase                           | Estado                              |
+| ------------------------------ | ----------------------------------- |
+| Infraestructura y andamiaje    | Completa                            |
+| Fase 1 — MVP funcional         | Completa                            |
+| Fase 2 — Producto completo     | Completa salvo entrega real de push |
+| Fase 3 — Inteligencia avanzada | Sin empezar                         |
+| Fase 4 — Apertura multiusuario | Condicional, no evaluada            |
 
 **La hipótesis central sigue sin validar:** el paso 5 del doc técnico pide usar el
 atajo de iOS durante una semana antes de seguir construyendo. Eso no ha ocurrido.
@@ -31,18 +31,18 @@ Los diez entregables están construidos y verificados contra la base real. Lo qu
 queda son cosas que dependen de un despliegue o de un dispositivo real, no de
 código.
 
-| # | Entregable | Estado |
-|---|---|---|
-| 1 | Alta manual de movimientos | Hecho |
-| 2 | UI de metas: imagen, progreso, aportes y retiros | Hecho |
-| 3 | Subida de imagen a Cloudinary | Hecho, subida real verificada |
-| 4 | UI del asistente con streaming | Hecho |
-| 5 | Bucle de function calling en `/api/chat` | Hecho, lectura y escritura |
-| 6 | Historial persistido en `ChatMessage` | Hecho |
-| 7 | UI de tarjetas y los dos simuladores | Hecho |
-| 8 | Suscripciones con total anualizado | Hecho |
-| 9 | Web Push: modelo, VAPID, service worker, cron | Hecho salvo entrega real |
-| 10 | Service worker y cola offline | Hecho, verificado sin red |
+| #   | Entregable                                           | Estado                        |
+| --- | ---------------------------------------------------- | ----------------------------- |
+| 1   | Alta manual de movimientos                           | Hecho                         |
+| 2   | UI de metas: imagen, progreso, aportes y retiros     | Hecho                         |
+| 3   | Subida de imagen a Cloudinary                        | Hecho, subida real verificada |
+| 4   | UI del asistente con streaming                       | Hecho                         |
+| 5   | Bucle de function calling en `/api/chat`             | Hecho, lectura y escritura    |
+| 6   | Historial en conversaciones con retención de 30 días | Hecho                         |
+| 7   | UI de tarjetas y los dos simuladores                 | Hecho                         |
+| 8   | Suscripciones con total anualizado                   | Hecho                         |
+| 9   | Web Push: modelo, VAPID, service worker, cron        | Hecho salvo entrega real      |
+| 10  | Service worker y cola offline                        | Hecho, verificado sin red     |
 
 ### Lo único que no se pudo verificar aquí
 
@@ -202,12 +202,16 @@ multi-moneda, Tauri y subcategorías. Son Fase 3 y 4 en el doc de visión.
 - [x] `POST /api/chat` con streaming
 - [x] Definición de herramientas: `consultarGastos` y `registrarTransaccion`
 - [x] Degradación elegante: sin `GROQ_API_KEY` la app registra transacciones igual
-- [ ] **UI del chat**: el endpoint está listo, la página es un placeholder
-- [ ] **Bucle de function calling en el endpoint**: las herramientas están definidas
-      y son seguras, pero el endpoint todavía no las pasa al modelo ni resuelve
-      las llamadas que este devuelva
-- [ ] Persistir el historial en `ChatMessage` (el modelo existe, nadie escribe en él)
-- [ ] Caché de respuestas y límite de consultas por usuario
+- [x] UI del chat: streaming, Markdown mínimo, avatares y pantalla de bienvenida
+      con saludo elegido en el servidor
+- [x] Bucle de function calling en el endpoint (una ronda de herramientas)
+- [x] Historial en conversaciones: `ChatSession` + `ChatMessage`, múltiples chats,
+      título derivado del primer mensaje y hoja de historial con borrado
+- [x] Retención de 30 días desde la creación: `expiresAt` materializado, barrido
+      en `/api/cron/chat-retention` (04:00 UTC) y filtro por `expiresAt` en las
+      lecturas, para que un cron caído no resucite lo vencido
+- [x] Límite de consultas por usuario y hora (60)
+- [ ] Caché de respuestas
 - [ ] Nivel 2: agente proactivo con análisis programado (P2)
 - [ ] Registro por fotografía de recibo con modelo de visión (P2)
 

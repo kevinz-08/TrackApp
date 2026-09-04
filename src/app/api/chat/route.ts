@@ -6,6 +6,7 @@ import { buildSnapshot } from "@/services/ai/context";
 import { SYSTEM_PROMPT, renderSnapshot } from "@/services/ai/prompts";
 import { tools, runTool } from "@/services/ai/tools";
 import { chatSchema } from "@/lib/validation/schemas";
+import { chatExpiryFrom, titleFrom } from "@/services/chat/history";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -38,20 +39,59 @@ export async function POST(req: Request) {
     return new Response("Demasiadas consultas por ahora. Inténtalo en un rato.", { status: 429 });
   }
 
-  const snapshot = await buildSnapshot(userId);
   const history = parsed.data.messages.slice(-8); // ventana corta
   const lastUser = [...history].reverse().find((m) => m.role === "user");
+  if (!lastUser) return new Response("No hay nada que responder", { status: 400 });
+
+  /*
+   * La conversación se resuelve ANTES de hablar con Groq, por dos motivos: su
+   * id viaja en una cabecera de la respuesta y las cabeceras se cierran al
+   * empezar el streaming, y así un id ajeno se rechaza sin haber gastado una
+   * llamada al modelo.
+   *
+   * El `sessionId` del cuerpo es entrada del cliente, no una credencial: se
+   * comprueba contra `userId` y contra `expiresAt` en el mismo `findFirst`. Sin
+   * esa comprobación, un id adivinado colgaría mensajes de la conversación de
+   * otro.
+   */
+  const now = new Date();
+  let sessionId: string;
+
+  if (parsed.data.sessionId) {
+    const owned = await prisma.chatSession.findFirst({
+      where: { id: parsed.data.sessionId, userId, expiresAt: { gt: now } },
+      select: { id: true },
+    });
+    // 404 y no 403: para quien pregunta, una conversación ajena y una que ya
+    // se borró por retención son indistinguibles, y así debe seguir siendo.
+    if (!owned) return new Response("Esa conversación ya no está disponible", { status: 404 });
+    sessionId = owned.id;
+  } else {
+    const created = await prisma.chatSession.create({
+      data: {
+        userId,
+        title: titleFrom(lastUser.content),
+        expiresAt: chatExpiryFrom(now),
+      },
+      select: { id: true },
+    });
+    sessionId = created.id;
+  }
+
+  const snapshot = await buildSnapshot(userId);
 
   const conversation: Message[] = [
     { role: "system", content: SYSTEM_PROMPT.replace("{{SNAPSHOT}}", renderSnapshot(snapshot)) },
     ...history.map((m) => ({ role: m.role, content: m.content }) as Message),
   ];
 
-  if (lastUser) {
-    await prisma.chatMessage.create({
-      data: { userId, role: "USER", content: lastUser.content },
-    });
-  }
+  // Escribir a través de la conversación y no de la tabla de mensajes es lo que
+  // mantiene `updatedAt` al día: `@updatedAt` se dispara con el update, y ese
+  // campo es el que ordena el historial.
+  await prisma.chatSession.update({
+    where: { id: sessionId },
+    data: { messages: { create: { userId, role: "USER", content: lastUser.content } } },
+  });
 
   const encoder = new TextEncoder();
 
@@ -128,8 +168,9 @@ export async function POST(req: Request) {
         }
 
         if (answer.trim()) {
-          await prisma.chatMessage.create({
-            data: { userId, role: "ASSISTANT", content: answer },
+          await prisma.chatSession.update({
+            where: { id: sessionId },
+            data: { messages: { create: { userId, role: "ASSISTANT", content: answer } } },
           });
         }
       } catch (err) {
@@ -147,6 +188,10 @@ export async function POST(req: Request) {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
+      // Con qué conversación habló el cliente. Es la única vía para devolver el
+      // id de una recién creada sin ensuciar el cuerpo, que es texto plano en
+      // streaming y no un sobre JSON.
+      "X-Chat-Session": sessionId,
       // Evita que un proxy intermedio acumule la respuesta y anule el streaming.
       "X-Accel-Buffering": "no",
     },
