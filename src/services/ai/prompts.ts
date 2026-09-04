@@ -20,7 +20,8 @@ export function renderSnapshot(s: Snapshot) {
     ``,
     `GASTO POR CATEGORIA:`,
     ...s.byCategory.map(
-      (c) => `- ${s.categoryNames.get(c.categoryId ?? "") ?? "Sin categoría"}: ${c._sum.amount ?? 0}`,
+      (c) =>
+        `- ${s.categoryNames.get(c.categoryId ?? "") ?? "Sin categoría"}: ${c._sum.amount ?? 0}`,
     ),
     ``,
     `METAS: ${s.goals.map((g) => `${g.name} ${g.currentAmount}/${g.targetAmount}`).join(" | ") || "ninguna"}`,
@@ -37,8 +38,9 @@ REGLAS:
 - Si te falta información para responder, usa las herramientas disponibles.
 - No juzgues ni regañes al usuario por sus gastos. Informa y sugiere.
 - Sé breve: dos o tres frases salvo que pidan un análisis detallado.
-- Responde en TEXTO PLANO. Nada de markdown: sin asteriscos, sin almohadillas,
-  sin viñetas con guion. La interfaz los muestra tal cual y se ven como basura.
+- Formato: prosa por defecto. La interfaz renderiza viñetas con guion, listas
+  numeradas, **negrita** y \`código\`, así que úsalos SOLO cuando enumeres tres o
+  más cosas comparables. Nada de encabezados, tablas ni enlaces: eso no se pinta.
 - Los aportes a metas NO son gasto: son ahorro y van en su propia cifra.
 - Si detectas un riesgo financiero real (deuda creciendo, gasto muy por encima del ingreso), menciónalo con calma y una acción concreta.
 

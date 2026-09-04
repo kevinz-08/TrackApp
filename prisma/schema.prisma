@@ -20,14 +20,15 @@ model User {
   monthStartDay Int      @default(1)
   createdAt     DateTime @default(now())
 
-  apiKeys        ApiKey[]
-  accounts       Account[]
-  categories     Category[]
-  transactions   Transaction[]
-  recurringRules RecurringRule[]
-  creditCards    CreditCard[]
-  savingGoals    SavingGoal[]
-  chatMessages   ChatMessage[]
+  apiKeys           ApiKey[]
+  accounts          Account[]
+  categories        Category[]
+  transactions      Transaction[]
+  recurringRules    RecurringRule[]
+  creditCards       CreditCard[]
+  savingGoals       SavingGoal[]
+  chatMessages      ChatMessage[]
+  chatSessions      ChatSession[]
   pushSubscriptions PushSubscription[]
 }
 
@@ -264,14 +265,53 @@ enum ChatRole {
   ASSISTANT
 }
 
+/**
+ * Una conversación. El historial son estas filas; los mensajes cuelgan de aquí
+ * y caen con ella (Cascade).
+ * `expiresAt` se materializa en vez de calcularse al vuelo (`createdAt + 30d`)
+ * por dos razones: el barrido de retención es entonces un rango sobre un
+ * índice en lugar de una expresión sobre cada fila, y la política queda visible
+ * como dato —la UI puede decir cuánto le queda a la conversación sin repetir
+ * la aritmética del servidor—.
+ * `title` es un recorte del primer mensaje del usuario, no un resumen del
+ * modelo: el título tiene que existir aunque Groq esté caído, que es el
+ * principio de que la IA no sea crítica.
+ */
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+  /**
+   * Último mensaje, de cualquiera de los dos lados. Ordena el historial.
+   */
+  updatedAt DateTime @default(now()) @updatedAt
+  expiresAt DateTime
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([expiresAt])
+}
+
 model ChatMessage {
   id        String   @id @default(cuid())
+  sessionId String
+  /**
+   * Redundante con `session.userId`, y a propósito: el límite por hora cuenta
+   * mensajes del usuario y sin esta columna esa cuenta necesitaría un join en
+   * la ruta caliente del chat. Además mantiene la regla de que toda query
+   * lleva `userId`, sin depender de la tabla de al lado.
+   */
   userId    String
   role      ChatRole
   content   String   @db.Text
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([sessionId, createdAt])
   @@index([userId, createdAt])
 }

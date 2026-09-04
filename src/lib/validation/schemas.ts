@@ -58,6 +58,12 @@ export const creditCardSchema = z.object({
 });
 
 export const chatSchema = z.object({
+  /**
+   * Cual conversación continúa este mensaje. Ausente = una nueva; el servidor
+   * la crea y devuelve su id en la cabecera `X-Chat-Session`. Nunca se confia
+   * en él sin comprobar antes que la conversación es del usuario de la sesión.
+   */
+  sessionId: z.string().min(1).max(40).optional(),
   messages: z
     .array(
       z.object({

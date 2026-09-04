@@ -39,6 +39,40 @@
   --chart-5: #b4b4b9;
   --chart-6: #dedee1;
 
+  /*
+   * Burbuja del emisor. No es tinta pura: un bloque casi blanco sobre la página
+   * oscura es un foco que se lee antes que el texto que contiene. Este escalón
+   * mantiene 11:1 contra su propio texto y se distingue de la burbuja del
+   * asistente sin gritar.
+   */
+  --bubble: #3a3a3e;
+  --bubble-ink: #ffffff;
+
+  /*
+   * Alto de la tab bar. Lo consumen el hueco inferior del contenido y el
+   * compositor del chat, que si no quedan detrás de la barra.
+   *
+   * Este valor es solo la estimacion del primer pintado (1px de borde + 61px
+   * de columna + el suelo del padding inferior o la safe area, lo que sea
+   * mayor): en cuanto la barra monta, `TabBar` sobrescribe la variable con su
+   * `offsetHeight` real. Sin esa correccion, cualquier cosa que cambie el alto
+   * de la barra —Dynamic Type, una etiqueta que envuelve, un icono mas alto—
+   * deja el ultimo elemento de la lista tapado, porque el numero de aqui no se
+   * entera.
+   */
+  --tabbar-h: calc(62px + max(10px, env(safe-area-inset-bottom)));
+
+  /*
+   * Resplandor de la pantalla de bienvenida del chat. Es luz, no color: en el
+   * mockup de referencia esa aura era el acento verde, y aquí la función —dar
+   * profundidad a una pantalla vacía— la cumple un blanco que se disuelve.
+   *
+   * En claro es blanco puro sobre el gris de la página, coherente con que en
+   * este tema el blanco es lo que flota. En oscuro baja a un 7%: cualquier cosa
+   * por encima deja de leerse como halo y empieza a leerse como una mancha.
+   */
+  --glow: rgb(255 255 255 / 0.62);
+
   --shimmer: rgb(10 10 11 / 0.07);
   --elevation: 0 1px 2px rgb(10 10 11 / 0.05), 0 8px 24px -12px rgb(10 10 11 / 0.16);
 }
@@ -60,6 +94,13 @@
     --chart-5: #4d4d53;
     --chart-6: #35353b;
 
+    /* Un peldaño por encima de `sunken` para separarse de la burbuja del
+       asistente sin llegar al brillo de la tinta. */
+    --bubble: #34343a;
+    --bubble-ink: #f7f7f8;
+
+    --glow: rgb(255 255 255 / 0.07);
+
     --shimmer: rgb(255 255 255 / 0.08);
     --elevation: 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 32px -16px rgb(0 0 0 / 0.8);
   }
@@ -80,6 +121,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
+
+  --color-bubble: var(--bubble);
+  --color-glow: var(--glow);
+  --color-bubble-ink: var(--bubble-ink);
 
   /* SF Pro en iOS: ya está en el dispositivo y trae optical sizing entre Text
      y Display a los 20pt. Esa óptica es lo que sostiene la jerarquía sin color. */
@@ -139,6 +184,10 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+
+    /* El desplazamiento programado —foco en un campo del final, un ancla— tiene
+       que parar por encima de la barra, no debajo. */
+    scroll-padding-bottom: calc(var(--tabbar-h) + 1rem);
   }
 
   body {
