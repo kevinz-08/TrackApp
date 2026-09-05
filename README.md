@@ -10,6 +10,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
   <img alt="Prisma" src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white">
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Neon-336791?logo=postgresql&logoColor=white">
+  <img alt="Groq" src="https://img.shields.io/badge/Groq-agente-F55036?logo=groq&logoColor=white">
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white">
 </p>
 
@@ -23,6 +24,8 @@
 - [Puesta en marcha](#puesta-en-marcha)
 - [Variables de entorno](#variables-de-entorno)
 - [Comandos](#comandos)
+- [El asistente](#el-asistente)
+- [Análisis proactivo](#análisis-proactivo)
 - [Despliegue en Vercel](#despliegue-en-vercel)
 - [Instalar en el iPhone](#instalar-en-el-iphone)
 - [Configurar el atajo de iOS](#configurar-el-atajo-de-ios)
@@ -43,8 +46,10 @@ botón de acción del iPhone: se pulsa, se dicta _«almuerzo, 25 mil»_, y apare
 una notificación confirmando el registro. La app existe para consultar y
 corregir, no para capturar.
 
-Todo lo demás —el panel, los gráficos, las metas, el asistente— está subordinado
-a que ese camino siga siendo instantáneo.
+Encima de ese registro vive un **agente** que consulta y actúa sobre los datos
+reales, y un **análisis proactivo** que revisa las cuentas cada mañana sin que
+nadie se lo pida. Todo lo demás está subordinado a que el camino del registro
+siga siendo instantáneo.
 
 ## Principios no negociables
 
@@ -54,7 +59,7 @@ contradice, el cambio está mal.
 | #   | Regla                                                            | Por qué                                                                                                                         |
 | --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | **Dinero en enteros.** `Int` en la unidad mínima, nunca `Float`. | El punto flotante pierde centavos y los pierde en silencio.                                                                     |
-| 2   | **`userId` en toda query**, aunque hoy haya un solo usuario.     | En las herramientas de IA el `userId` sale de la sesión, **jamás** de los argumentos que genera el modelo.                      |
+| 2   | **`userId` en toda query**, aunque hoy haya un solo usuario.     | En las herramientas del agente el `userId` sale de la sesión, **jamás** de los argumentos que genera el modelo.                 |
 | 3   | **La IA no es crítica.**                                         | Si Groq falla, la app registra transacciones igual. Todo camino que dependa de un LLM tiene un fallback determinista.           |
 | 4   | **Node.js runtime** por defecto en los Route Handlers.           | Prisma y `web-push` necesitan APIs de Node.                                                                                     |
 | 5   | **`actions/` vs `api/`.**                                        | Si el consumidor es la propia UI, Server Action. Si es externo (Atajos) o necesita streaming (chat), Route Handler.             |
@@ -67,8 +72,8 @@ arquitectura, en [`TrackApp-Tecnico.md`](TrackApp-Tecnico.md).
 ## Stack
 
 **Next.js 16** (App Router) · **TypeScript** · **Tailwind v4** · **Prisma 7 +
-PostgreSQL** (Neon) · **Auth.js v5** (JWT) · **Groq** · **Recharts** ·
-**Web Push** · **pnpm**
+PostgreSQL** (Neon) · **Auth.js v5** (JWT) · **Groq** (agente con function
+calling) · **Zod v4** · **Recharts** · **Web Push** · **pnpm**
 
 Un solo despliegue: Next.js sirve el frontend y la API. No hay backend separado.
 
@@ -99,36 +104,162 @@ Neon expone **dos** cadenas de conexión y las dos hacen falta: `DATABASE_URL`
 `DIRECT_URL` (directa, la usa la CLI para migrar). Prisma 7 ya no acepta `url`
 dentro de `datasource`: viven en [`prisma.config.ts`](prisma.config.ts).
 
-| Variable                                                                   | Necesaria              | Notas                                                                                                               |
-| -------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                             | **Sí** — runtime       | Cadena _pooled_ de Neon (host con `-pooler`).                                                                       |
-| `DIRECT_URL`                                                               | **Sí** — build         | Cadena directa. Sin ella `prisma generate` falla y el build se cae antes de compilar.                               |
-| `AUTH_SECRET`                                                              | **Sí**                 | La lee Auth.js.                                                                                                     |
-| `CRON_SECRET`                                                              | **Sí** en producción   | Vercel lo manda como `Authorization: Bearer <valor>` a los endpoints de cron.                                       |
-| `GROQ_API_KEY`                                                             | Opcional               | Sin ella el chat se apaga y el parser se queda en su nivel determinista. Registrar transacciones sigue funcionando. |
-| `GROQ_MODEL_CHAT`<br>`GROQ_MODEL_FAST`                                     | Opcional               | Groq retira modelos sin aviso. Si el chat empieza a devolver 404, se sobreescribe aquí sin tocar código.            |
-| `CLOUDINARY_CLOUD_NAME`<br>`CLOUDINARY_API_KEY`<br>`CLOUDINARY_API_SECRET` | Para imágenes de metas | La firma se hace en el servidor; el navegador nunca ve el secreto.                                                  |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`<br>`VAPID_PRIVATE_KEY`<br>`VAPID_SUBJECT`   | Para push              | Sin la pública, `pushEnabled()` devuelve `false` y las notificaciones quedan apagadas en silencio.                  |
-| `SEED_USER_*`                                                              | Solo local             | Las usa `pnpm db:seed`. No van a producción.                                                                        |
+| Variable                                                                   | Necesaria              | Notas                                                                                                                                                   |
+| -------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                             | **Sí** — runtime       | Cadena _pooled_ de Neon (host con `-pooler`).                                                                                                           |
+| `DIRECT_URL`                                                               | **Sí** — build         | Cadena directa. Sin ella `prisma generate` falla y el build se cae antes de compilar.                                                                   |
+| `AUTH_SECRET`                                                              | **Sí**                 | La lee Auth.js.                                                                                                                                         |
+| `CRON_SECRET`                                                              | **Sí** en producción   | Vercel lo manda como `Authorization: Bearer <valor>` a los cuatro endpoints de cron.                                                                    |
+| `GROQ_API_KEY`                                                             | Opcional               | Sin ella se apagan el asistente y la narración de los insights, y el parser se queda en su nivel determinista. Registrar y consultar sigue funcionando. |
+| `GROQ_MODEL_CHAT`<br>`GROQ_MODEL_FAST`                                     | Opcional               | Groq retira modelos sin aviso. Si el chat empieza a devolver 404, se sobreescribe aquí sin tocar código.                                                |
+| `CLOUDINARY_CLOUD_NAME`<br>`CLOUDINARY_API_KEY`<br>`CLOUDINARY_API_SECRET` | Para imágenes de metas | La firma se hace en el servidor; el navegador nunca ve el secreto.                                                                                      |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`<br>`VAPID_PRIVATE_KEY`<br>`VAPID_SUBJECT`   | Para push              | Sin la pública, `pushEnabled()` devuelve `false` y las notificaciones quedan apagadas en silencio.                                                      |
+| `SEED_USER_*`                                                              | Solo local             | Las usa `pnpm db:seed`. No van a producción.                                                                                                            |
 
 > **Las variables `NEXT_PUBLIC_*` se hornean en el bundle durante el build.**
 > Cambiarlas después de un despliegue no surte efecto hasta redesplegar.
 
 ## Comandos
 
-| Comando              | Qué hace                                   |
-| -------------------- | ------------------------------------------ |
-| `pnpm dev`           | Servidor de desarrollo                     |
-| `pnpm build`         | `prisma generate && next build`            |
-| `pnpm typecheck`     | `tsc --noEmit`                             |
-| `pnpm lint`          | ESLint                                     |
-| `pnpm format`        | Prettier                                   |
-| `pnpm db:migrate`    | Migración de desarrollo                    |
-| `pnpm db:deploy`     | Aplica migraciones pendientes (producción) |
-| `pnpm db:seed`       | Categorías base y usuario inicial          |
-| `pnpm db:demo`       | Movimientos de ejemplo                     |
-| `pnpm db:demo:clear` | Borra las transacciones del usuario        |
-| `pnpm db:studio`     | Explorador de la base                      |
+| Comando              | Qué hace                                                     |
+| -------------------- | ------------------------------------------------------------ |
+| `pnpm dev`           | Servidor de desarrollo                                       |
+| `pnpm build`         | `prisma generate && next build`                              |
+| `pnpm typecheck`     | `tsc --noEmit`                                               |
+| `pnpm lint`          | ESLint                                                       |
+| `pnpm format`        | Prettier                                                     |
+| `pnpm eval:parser`   | Casos reales del parser de lenguaje natural, sin red ni base |
+| `pnpm db:migrate`    | Migración de desarrollo                                      |
+| `pnpm db:deploy`     | Aplica migraciones pendientes (producción)                   |
+| `pnpm db:seed`       | Categorías base y usuario inicial                            |
+| `pnpm db:demo`       | Movimientos de ejemplo                                       |
+| `pnpm db:demo:clear` | Borra las transacciones del usuario                          |
+| `pnpm db:studio`     | Explorador de la base                                        |
+
+## El asistente
+
+No es un chat que responde de memoria: es un **agente con herramientas** que
+consulta la base y escribe en ella. Pregúntale _«¿en qué se me fue la plata este
+mes?»_ y ejecuta una consulta real; dile _«apunta el almuerzo de 20 mil»_ y crea
+la transacción.
+
+### El bucle
+
+El núcleo es [`services/ai/agent.ts`](src/services/ai/agent.ts), un **generador
+asíncrono** independiente del transporte. Emite dos tipos de evento —`text` y
+`tool`— y devuelve la respuesta completa con el consumo de tokens.
+
+Es un generador y no un `ReadableStream` porque tiene dos consumidores con
+necesidades distintas: el chat convierte cada evento en bytes para el navegador,
+y el cron acumula el texto y descarta el resto. Con un stream habría que
+duplicar el bucle.
+
+El agente hace **dos rondas de herramientas como máximo**. Con una sola podía
+consultar o actuar, pero no encadenar: _«¿cuánto llevo en comida? y regístrame
+el almuerzo de 20 mil»_ necesita dos. El freno es un contador, no una
+heurística, así que el bucle no puede ciclar.
+
+### Las herramientas
+
+Nueve, definidas con Zod y convertidas a JSON Schema con `z.toJSONSchema()`, de
+modo que el esquema que valida y el que ve el modelo son **el mismo objeto**.
+
+| Herramienta            | Qué hace                                                             | Escribe |
+| ---------------------- | -------------------------------------------------------------------- | :-----: |
+| `consultarGastos`      | Movimientos de un rango de fechas, con filtro opcional por categoría |         |
+| `registrarTransaccion` | Crea un ingreso o egreso                                             |   ✅    |
+| `resumenPeriodo`       | Compara meses, calcula la variación y lista los mayores gastos       |         |
+| `auditarSuscripciones` | Activas, coste anualizado, cuáles llevan tiempo sin revisar          |         |
+| `simularDiferido`      | Cuánto cuesta de verdad diferir una compra a N cuotas                |         |
+| `simularPagoMinimo`    | Cuánto tarda y cuánto interés paga quien abona solo el mínimo        |         |
+| `estadoTarjetas`       | Cupos, tasas y fechas de corte y pago                                |         |
+| `estadoMetas`          | Progreso y ritmo requerido de cada meta                              |         |
+| `planificarMeta`       | Si el excedente real alcanza para una meta en un plazo dado          |         |
+
+Las aritméticas se resuelven **en código, no en el modelo**. `resumenPeriodo`
+calcula la variación porcentual y se la entrega ya hecha: un LLM restando y
+dividiendo cifras de seis dígitos se equivoca, y una cifra inventada en una app
+de finanzas es peor que no responder.
+
+### Catálogo por vista
+
+El asistente se abre desde cualquier pantalla y **el catálogo de herramientas se
+recorta según desde dónde**:
+
+| Vista            | Herramientas ofrecidas                                                 |
+| ---------------- | ---------------------------------------------------------------------- |
+| `/cards`         | consultarGastos · simularDiferido · simularPagoMinimo · estadoTarjetas |
+| `/goals`         | consultarGastos · resumenPeriodo · planificarMeta · estadoMetas        |
+| `/subscriptions` | consultarGastos · auditarSuscripciones · resumenPeriodo                |
+| `/transactions`  | consultarGastos · registrarTransaccion · resumenPeriodo                |
+| resto            | Las nueve                                                              |
+
+No es una restricción de seguridad —todas las herramientas son del propio
+usuario— sino de precisión y de coste: el modelo elige peor cuantas más opciones
+ve, y cada definición viaja en **todas** las peticiones de la conversación.
+
+El origen viaja en `?from=`, lo pone quien navega y el servidor lo valida contra
+la lista de [`lib/chat-routes.ts`](src/lib/chat-routes.ts). Es una pista de
+intención, nunca una credencial.
+
+### Salvaguardas
+
+| Control                                      | Dónde               | Qué evita                                                     |
+| -------------------------------------------- | ------------------- | ------------------------------------------------------------- |
+| `userId` desde la sesión, nunca desde `args` | `tools/define.ts`   | Que el modelo lea o escriba datos de otro usuario             |
+| Validación Zod antes de tocar la base        | `tools/registry.ts` | Argumentos inventados o mal formados                          |
+| 20 transacciones/hora vía `source: AI_CHAT`  | `tools/registry.ts` | Que un bucle degenerado llene la base                         |
+| 60 mensajes/hora por usuario                 | `api/chat/route.ts` | Gasto descontrolado de tokens                                 |
+| Máximo 2 rondas de herramientas              | `agent.ts`          | Bucles infinitos de llamadas                                  |
+| Errores neutros hacia el modelo              | `tools/registry.ts` | Que el detalle de un error de Prisma acabe en la conversación |
+
+Un fallo de herramienta vuelve al modelo **como texto que puede leer y corregir**
+en la siguiente ronda, en vez de reventar la petición.
+
+### Dos superficies, un transporte
+
+El agente se usa desde la pestaña completa `/chat` y desde un **dock flotante**
+que se abre encima de cualquier ruta. Las dos comparten el hook
+[`use-assistant.ts`](src/components/chat/use-assistant.ts), que es el transporte
+sin nada de presentación: el día que cambie el protocolo solo hay un sitio que
+arreglar. Es la misma separación que en el servidor entre `runAgent` y quien
+consume sus eventos.
+
+## Análisis proactivo
+
+Un cron diario convierte la app de registro histórico pasivo en algo que **mira
+los datos por su cuenta**. Corre a las 12:00 UTC —07:00 en Colombia, antes de la
+ventana de gasto del día, que es cuando un aviso todavía puede cambiar algo.
+
+El orden es deliberado: **primero detectar, después redactar**.
+
+**1. Detección determinista** ([`insights/detectors.ts`](src/services/ai/insights/detectors.ts)).
+Cero tokens, cero alucinaciones. Cuatro detectores:
+
+| Hallazgo             | Condición                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DUPLICATE_CHARGE`   | Dos o más cargos idénticos (mismo concepto y monto) en menos de 72 horas                                                                          |
+| `SPENDING_SPIKE`     | Una categoría 1.6× por encima de su promedio de los 3 meses anteriores, con un suelo de $80.000 para que duplicar un gasto pequeño no sea noticia |
+| `SUBSCRIPTION_STALE` | Suscripciones que llevan mucho cobrándose sin que nadie las revise                                                                                |
+| `GOAL_OFF_PACE`      | Metas con fecha objetivo cuyo ritmo actual no alcanza                                                                                             |
+
+**2. Redacción con el modelo pequeño** ([`insights/narrate.ts`](src/services/ai/insights/narrate.ts)).
+Una sola llamada con todos los hallazgos del usuario. El modelo **solo redacta**:
+recibe las cifras ya calculadas y tiene prohibido calcular, estimar o completar.
+Cada hallazgo lleva su `fallbackTitle` y `fallbackBody` deterministas, así que si
+Groq está caído —o devuelve basura, o se salta un hallazgo— el usuario ve el
+texto de respaldo. Ningún camino pierde información.
+
+**3. Persistencia idempotente.** La tabla `Insight` tiene un índice único sobre
+`(userId, fingerprint)` y el cron hace `upsert`, no `create`. El fingerprint
+identifica **el hecho, no el aviso**: un cobro duplicado detectado tres mañanas
+seguidas es una sola fila y una sola notificación. Con `create` serían tres
+avisos del mismo hecho y la app silenciada al cuarto día.
+
+Lo que **no** detecta, a propósito: fechas de corte y pago de tarjetas, y cobros
+recurrentes próximos. Eso ya lo avisa `/api/cron/alerts`, y dos sistemas
+notificando el mismo hecho es la forma más rápida de que el usuario apague los
+dos.
 
 ## Despliegue en Vercel
 
@@ -148,9 +279,18 @@ infiere de las cabeceras y Vercel se detecta solo; copiar el `AUTH_URL` local
 **Las migraciones no corren solas.** El build solo hace `prisma generate`. Cuando
 crees una migración nueva, aplícala con `pnpm db:deploy` contra Neon.
 
-Los tres cron jobs viven en [`vercel.json`](vercel.json) y son diarios, que es lo
-máximo que permite el plan Hobby. Las horas son **UTC**, y en Hobby Vercel puede
-dispararlos en cualquier momento dentro de la hora indicada.
+Los cuatro cron jobs viven en [`vercel.json`](vercel.json):
+
+| Ruta                       | UTC   | Qué hace                                          |
+| -------------------------- | ----- | ------------------------------------------------- |
+| `/api/cron/chat-retention` | 04:00 | Borra conversaciones vencidas (30 días)           |
+| `/api/cron/recurring`      | 05:00 | Materializa los cargos recurrentes del día        |
+| `/api/cron/insights`       | 12:00 | Detecta, redacta y notifica los hallazgos del día |
+| `/api/cron/alerts`         | 13:00 | Fechas de corte, pago y cobros próximos           |
+
+Todos son diarios, que es lo máximo que permite el plan Hobby. Las horas son
+**UTC**, y en Hobby Vercel puede dispararlos en cualquier momento dentro de la
+hora indicada.
 
 ## Instalar en el iPhone
 
@@ -162,7 +302,7 @@ desplegar antes de este paso.
 2. Compartir → **Añadir a pantalla de inicio**.
 
 Sin este paso **no hay notificaciones push en iOS**, así que todo el sistema de
-alertas queda inutilizado.
+alertas y de insights queda sin canal de salida.
 
 Para regenerar los iconos si cambia la marca, la fuente vectorial está en
 `public/icons/icon.svg` y `public/icons/maskable.svg`.
@@ -198,7 +338,7 @@ genera otro y se revoca el viejo desde esa misma pantalla, que muestra el últim
 uso de cada uno.
 
 Cada token habilita **únicamente** `POST /api/quick-log`. No sirve para leer
-datos ni para el chat.
+datos ni para el asistente.
 
 > Antes de compartir capturas de esta pantalla, tapa el token o revócalo.
 
@@ -268,6 +408,7 @@ Por último, se asigna en **Ajustes → Botón de Acción → Atajo**.
 > primer número** que encuentra en la cadena. Con el concepto delante, un gasto
 > como «taxi 2 personas» + `25000` se registra como **$2**, porque el `2` aparece
 > antes. Con el monto delante el parseo es correcto en todos los casos.
+> `pnpm eval:parser` cubre estos casos sin red ni base.
 
 ### Variantes
 
@@ -304,15 +445,22 @@ src/
 │   ├── (dashboard)/          Panel, movimientos, tarjetas, metas, chat, ajustes
 │   └── api/
 │       ├── quick-log/        ← Ruta principal: el atajo de iOS (API Key)
-│       ├── chat/             Streaming + function calling
-│       └── cron/             Recurrentes, alertas, retención del chat
+│       ├── chat/             Transporte del agente: streaming y persistencia
+│       └── cron/             Recurrentes, alertas, insights, retención del chat
 ├── actions/                  Server Actions: todo lo que consume la propia UI
 ├── services/
-│   ├── ai/                   Parser determinista + fallback a Groq
+│   ├── ai/
+│   │   ├── agent.ts          Bucle de razonamiento (generador, sin transporte)
+│   │   ├── tools/            Registro de herramientas: define · registry · …
+│   │   ├── insights/         Detección determinista + narración con fallback
+│   │   ├── parse-transaction Parser del quick-log: regex, y Groq solo si falla
+│   │   └── prompts · context Prompt de sistema y snapshot financiero
 │   ├── finance/              Balance, agregaciones, crédito, metas, recurrentes
 │   └── notifications/        Web Push
-├── components/ui/            Primitivas: Money, Card, Panel, Sheet, Skeleton…
-└── lib/                      Prisma, auth, dinero, fechas, validación
+├── components/
+│   ├── chat/                 Vista completa, dock flotante y transporte común
+│   └── ui/                   Primitivas: Money, Card, Panel, Sheet, Skeleton…
+└── lib/                      Prisma, auth, dinero, fechas, validación, rutas de chat
 ```
 
 El atajo de iOS es el único cliente que no usa sesión de navegador: entra por su
@@ -321,10 +469,10 @@ propio carril con autenticación por API Key.
 ## Estado
 
 El MVP está **completo y verificado contra la base real**: alta manual de
-movimientos, metas con imagen, asistente con streaming y function calling,
-historial de conversaciones con retención de 30 días, tarjetas con simuladores de
-cuotas y pago mínimo, suscripciones con coste anualizado, service worker con cola
-offline y Web Push de punta a punta.
+movimientos, metas con imagen, agente con herramientas sobre datos reales,
+análisis proactivo diario, historial de conversaciones con retención de 30 días,
+tarjetas con simuladores de cuotas y pago mínimo, suscripciones con coste
+anualizado, service worker con cola offline y Web Push de punta a punta.
 
 Lo que queda no es código:
 

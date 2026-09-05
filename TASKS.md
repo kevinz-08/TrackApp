@@ -17,7 +17,7 @@ del §4 del doc de visión.
 | Infraestructura y andamiaje    | Completa                            |
 | Fase 1 — MVP funcional         | Completa                            |
 | Fase 2 — Producto completo     | Completa salvo entrega real de push |
-| Fase 3 — Inteligencia avanzada | Sin empezar                         |
+| Fase 3 — Inteligencia avanzada | Agente ampliado; falta medir en uso real |
 | Fase 4 — Apertura multiusuario | Condicional, no evaluada            |
 
 **La hipótesis central sigue sin validar:** el paso 5 del doc técnico pide usar el
@@ -38,6 +38,7 @@ código.
 | 3   | Subida de imagen a Cloudinary                        | Hecho, subida real verificada |
 | 4   | UI del asistente con streaming                       | Hecho                         |
 | 5   | Bucle de function calling en `/api/chat`             | Hecho, lectura y escritura    |
+| 5b  | Registro de herramientas, agente contextual, insights | Hecho, migración aplicada |
 | 6   | Historial en conversaciones con retención de 30 días | Hecho                         |
 | 7   | UI de tarjetas y los dos simuladores                 | Hecho                         |
 | 8   | Suscripciones con total anualizado                   | Hecho                         |
@@ -200,11 +201,28 @@ multi-moneda, Tauri y subcategorías. Son Fase 3 y 4 en el doc de visión.
 - [x] Serialización del snapshot como texto denso, no como JSON
 - [x] System prompt con las reglas de tono no punitivo
 - [x] `POST /api/chat` con streaming
-- [x] Definición de herramientas: `consultarGastos` y `registrarTransaccion`
+- [x] Registro de herramientas escalable: `services/ai/tools/`, un módulo por
+      dominio, esquema Zod que valida los argumentos del modelo y se convierte
+      solo a JSON Schema con `z.toJSONSchema` (una definición, no dos)
 - [x] Degradación elegante: sin `GROQ_API_KEY` la app registra transacciones igual
 - [x] UI del chat: streaming, Markdown mínimo, avatares y pantalla de bienvenida
       con saludo elegido en el servidor
-- [x] Bucle de function calling en el endpoint (una ronda de herramientas)
+- [x] Bucle de function calling extraído a `services/ai/agent.ts` como generador
+      asíncrono, con dos rondas de herramientas: el chat y el cron proactivo
+      comparten el mismo razonamiento sin duplicarlo
+- [x] Nueve herramientas: registrar y consultar movimientos, `resumenPeriodo`,
+      `auditarSuscripciones`, los dos simuladores de tarjeta, `estadoTarjetas`,
+      `estadoMetas` y `planificarMeta`
+- [x] Asistencia contextual: `?from=` lleva la vista de origen, el prompt recibe
+      un foco por ruta y el catálogo de herramientas se recorta a esa vista
+- [x] Dock flotante del asistente en toda la app (`components/chat/assistant-dock.tsx`):
+      botón sobre la barra en la zona del pulgar, hoja con el chat en sitio,
+      tareas delegables por vista y `router.refresh()` al terminar para que lo
+      que el agente registre aparezca detrás. Oculto en `/chat` y sin `GROQ_API_KEY`
+- [x] Transporte del chat extraído a `use-assistant.ts`: la vista completa y el
+      dock comparten streaming y manejo de errores
+- [x] Límite de escrituras del agente: 20 transacciones `AI_CHAT` por hora
+- [x] Consumo de tokens registrado por conversación (`x_groq.usage`)
 - [x] Historial en conversaciones: `ChatSession` + `ChatMessage`, múltiples chats,
       título derivado del primer mensaje y hoja de historial con borrado
 - [x] Retención de 30 días desde la creación: `expiresAt` materializado, barrido
@@ -212,7 +230,13 @@ multi-moneda, Tauri y subcategorías. Son Fase 3 y 4 en el doc de visión.
       lecturas, para que un cron caído no resucite lo vencido
 - [x] Límite de consultas por usuario y hora (60)
 - [ ] Caché de respuestas
-- [ ] Nivel 2: agente proactivo con análisis programado (P2)
+- [x] Nivel 2: agente proactivo. Detección determinista en
+      `services/ai/insights/detectors.ts` (cobros repetidos, picos por
+      categoría, suscripciones sin revisar, metas fuera de ritmo), redacción con
+      el modelo pequeño y respaldo determinista si Groq falla. Modelo `Insight`
+      con huella única por hecho para no repetir el aviso cada día, y
+      `/api/cron/insights` a las 12:00 UTC
+- [ ] UI de los insights: hoy solo llegan por push, no se leen en la app
 - [ ] Registro por fotografía de recibo con modelo de visión (P2)
 
 ## 7. Tarjetas de crédito (P1)
