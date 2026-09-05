@@ -12,7 +12,10 @@
  * son cinco segundos.
  */
 
-const VERSION = "v2";
+// Subir la versión invalida lo cacheado. Aquí es obligatorio: las cachés de v2
+// pueden contener cargas útiles de navegación (`?_rsc=`) que nunca debieron
+// entrar, y servirlas es mostrar cifras de otro día.
+const VERSION = "v3";
 const STATIC_CACHE = `trackapp-static-${VERSION}`;
 const DATA_CACHE = `trackapp-data-${VERSION}`;
 
@@ -203,6 +206,22 @@ self.addEventListener("fetch", (event) => {
   // portada cacheada como último recurso si no hay señal.
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match("/")));
+    return;
+  }
+
+  /*
+   * Navegación desde dentro de la app: el router de Next no recarga la página,
+   * pide la carga útil del servidor con `?_rsc=…` y la cabecera `RSC`.
+   *
+   * Estas peticiones NO llevan `mode: "navigate"` —las hace `fetch`, no el
+   * navegador— así que caían en la regla de abajo, que es caché primero. Ahí el
+   * daño es doble: el panel devuelve las cifras de la primera vez que se
+   * visitó, y la precarga que hace Next al acercarse a un enlace se resuelve
+   * contra la caché, con lo que la ruta parece instantánea y muestra datos
+   * viejos. Van con la navegación: red primero, caché solo sin señal.
+   */
+  if (url.searchParams.has("_rsc") || request.headers.get("RSC") === "1") {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
     return;
   }
 

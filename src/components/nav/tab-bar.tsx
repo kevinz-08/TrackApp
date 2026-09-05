@@ -1,16 +1,9 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ArrowLeftRight,
-  CreditCard,
-  House,
-  Sparkles,
-  Target,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowLeftRight, CreditCard, House, Sparkles, Target, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -81,6 +74,57 @@ function useTabBarHeight() {
   return ref;
 }
 
+/**
+ * Contenido de una pestaña. Vive dentro del `Link` y no fuera porque
+ * `useLinkStatus` solo lee el estado de la navegación desde dentro del enlace
+ * que la disparó.
+ *
+ * Marca el destino en cuanto se toca, sin esperar a que el servidor conteste:
+ * si la respuesta tarda —una ruta que consulta la base desde fuera de la región
+ * de Neon, o un túnel de por medio—, sin esto la barra sigue señalando la
+ * pestaña vieja y el toque parece perdido.
+ *
+ * La señal es la misma pastilla del estado activo, adelantada. No se añade
+ * ningún indicador nuevo: un spinner en la barra convierte cada navegación en
+ * un evento, y navegar no es un evento.
+ */
+function TabContent({
+  label,
+  icon: Icon,
+  active,
+}: {
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+}) {
+  const { pending } = useLinkStatus();
+  const marked = active || pending;
+
+  return (
+    <span className={cn("contents", pending && "text-ink")}>
+      <span
+        className={cn(
+          "grid h-7.5 w-11 max-w-full place-items-center rounded-full",
+          "duration-base ease-standard transition-colors",
+          marked ? "bg-sunken" : "bg-transparent",
+        )}
+      >
+        <Icon size={19} strokeWidth={1.75} absoluteStrokeWidth aria-hidden />
+      </span>
+      <span
+        className={cn(
+          // nowrap: «Movimientos» partido en dos líneas es lo que hace
+          // que la barra se lea cortada en pantallas estrechas.
+          "text-[10px] leading-[13px] tracking-[0.01em] whitespace-nowrap",
+          marked ? "font-semibold" : "font-medium",
+        )}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
 export function TabBar() {
   const pathname = usePathname();
   const ref = useTabBarHeight();
@@ -105,25 +149,7 @@ export function TabBar() {
                   active ? "text-ink" : "text-ink-3",
                 )}
               >
-                <span
-                  className={cn(
-                    "grid h-7.5 w-11 max-w-full place-items-center rounded-full",
-                    "duration-base ease-standard transition-colors",
-                    active ? "bg-sunken" : "bg-transparent",
-                  )}
-                >
-                  <Icon size={19} strokeWidth={1.75} absoluteStrokeWidth aria-hidden />
-                </span>
-                <span
-                  className={cn(
-                    // nowrap: «Movimientos» partido en dos líneas es lo que hace
-                    // que la barra se lea cortada en pantallas estrechas.
-                    "text-[10px] leading-[13px] tracking-[0.01em] whitespace-nowrap",
-                    active ? "font-semibold" : "font-medium",
-                  )}
-                >
-                  {label}
-                </span>
+                <TabContent label={label} icon={Icon} active={active} />
               </Link>
             </li>
           );

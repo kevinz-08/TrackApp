@@ -1,38 +1,31 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker";
-import { auth } from "@/auth";
+import { getUser } from "@/lib/auth/guards";
 import { TabBar } from "@/components/nav/tab-bar";
-import { Logo } from "@/components/ui/logo";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // Misma resolución memoizada que usa la página: la sesión se verifica una
+  // vez por petición, no una por componente que la pida.
+  if (!(await getUser())) redirect("/login");
 
   return (
     <div className="flex flex-1 flex-col">
       <ServiceWorkerRegistrar />
-      {/* Cabecera mínima: la navegación real vive abajo, en la zona del pulgar. */}
-      <header className="border-hairline bg-ground/90 sticky top-0 z-20 border-b [padding-top:env(safe-area-inset-top)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-3">
-          <Link
-            href="/"
-            aria-label="TrackApp — inicio"
-            className="ease-standard duration-base active:duration-instant transition-transform active:scale-[0.96]"
-          >
-            <Logo />
-          </Link>
-          <Link
-            href="/settings"
-            className="text-ink-3 duration-fast ease-standard hover:text-ink text-[11px] leading-[14px] font-semibold tracking-[0.14em] uppercase transition-colors"
-          >
-            Ajustes
-          </Link>
-        </div>
-      </header>
+
+      {/*
+        No hay barra superior: el nombre de la sección lo pone cada página con
+        `PageHeader`, a tamaño de título y subiendo con el scroll. Lo único que
+        queda arriba es este velo del alto de la safe area, que existe para que
+        el contenido no pase limpio por debajo de la hora y la batería cuando la
+        PWA corre a pantalla completa. En navegador mide cero y no pinta nada.
+      */}
+      <div
+        aria-hidden
+        className="bg-ground/90 sticky top-0 z-20 h-[env(safe-area-inset-top)] backdrop-blur-xl"
+      />
 
       {/* El hueco inferior sale del alto real de la barra, no de un número mágico. */}
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-6 pb-[calc(var(--tabbar-h)+1.5rem)]">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-4 pb-[calc(var(--tabbar-h)+1.5rem)]">
         {children}
       </main>
 

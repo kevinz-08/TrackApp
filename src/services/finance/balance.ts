@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { monthStart, monthEnd } from "@/lib/dates";
 
@@ -21,16 +22,20 @@ export async function getMonthlyBalance(userId: string, reference = new Date()) 
   const gte = monthStart(reference);
   const lt = monthEnd(reference);
 
-  const rows = await prisma.transaction.groupBy({
-    by: ["type", "isFixed"],
-    where: { userId, occurredAt: { gte, lt }, savingGoalId: null },
-    _sum: { amount: true },
-  });
-
-  const savingsRow = await prisma.transaction.aggregate({
-    where: { userId, occurredAt: { gte, lt }, savingGoalId: { not: null } },
-    _sum: { amount: true },
-  });
+  // En paralelo, no en cadena: son consultas independientes y cada ida y vuelta
+  // a Neon cuesta ~80ms desde fuera de su región. Encadenarlas multiplica esa
+  // latencia por el número de consultas sin ganar nada.
+  const [rows, savingsRow] = await Promise.all([
+    prisma.transaction.groupBy({
+      by: ["type", "isFixed"],
+      where: { userId, occurredAt: { gte, lt }, savingGoalId: null },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { userId, occurredAt: { gte, lt }, savingGoalId: { not: null } },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const pick = (type: "INCOME" | "EXPENSE", isFixed?: boolean) =>
     rows
@@ -53,20 +58,36 @@ export async function getMonthlyBalance(userId: string, reference = new Date()) 
   };
 }
 
-/** Proyección simple del saldo al cierre, contando los fijos aún no materializados. */
-export async function getCashFlowProjection(userId: string, reference = new Date()) {
-  const balance = await getMonthlyBalance(userId, reference);
+/**
+ * Proyección simple del saldo al cierre, contando los fijos aún no
+ * materializados.
+ *
+ * Memoizada por petición: la portada la necesita en dos sitios —la cifra
+ * grande y el reparto fijo/variable—, que ahora son dos ramas de Suspense
+ * distintas. Sin `cache()` cada rama repetiría las tres consultas.
+ */
+export const getCashFlowProjection = cache(async function getCashFlowProjection(
+  userId: string,
+  reference = new Date(),
+) {
+  // El fin de período no depende del balance —sale del calendario—, así que la
+  // consulta de los fijos pendientes puede salir a la vez que las otras dos en
+  // vez de esperar a que vuelvan.
+  const periodEnd = monthEnd(reference);
 
-  const pendingFixed = await prisma.recurringRule.aggregate({
-    where: {
-      userId,
-      isActive: true,
-      type: "EXPENSE",
-      nextRunAt: { gte: reference, lt: balance.periodEnd },
-    },
-    _sum: { amount: true },
-  });
+  const [balance, pendingFixed] = await Promise.all([
+    getMonthlyBalance(userId, reference),
+    prisma.recurringRule.aggregate({
+      where: {
+        userId,
+        isActive: true,
+        type: "EXPENSE",
+        nextRunAt: { gte: reference, lt: periodEnd },
+      },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const pending = pendingFixed._sum.amount ?? 0;
   return { ...balance, pendingFixed: pending, projectedBalance: balance.balance - pending };
-}
+});
