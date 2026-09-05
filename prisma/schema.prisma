@@ -30,6 +30,7 @@ model User {
   chatMessages      ChatMessage[]
   chatSessions      ChatSession[]
   pushSubscriptions PushSubscription[]
+  insights          Insight[]
 }
 
 /**
@@ -313,5 +314,50 @@ model ChatMessage {
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// Insights proactivos
+// ─────────────────────────────────────────────
+
+enum InsightKind {
+  DUPLICATE_CHARGE
+  SPENDING_SPIKE
+  SUBSCRIPTION_STALE
+  GOAL_OFF_PACE
+}
+
+/**
+ * Un hallazgo del análisis programado.
+ *
+ * La DETECCIÓN es determinista (SQL sobre las transacciones); el modelo solo
+ * redacta. Un LLM decidiendo por su cuenta qué es una anomalía inventa alertas,
+ * y una alerta falsa en una app de dinero cuesta la confianza entera. Por eso
+ * `body` tiene siempre un texto de respaldo escrito por la app: si Groq está
+ * caído, el insight sale igual, más seco pero cierto.
+ *
+ * `fingerprint` es la clave del asunto. El cron corre a diario y volvería a
+ * detectar el mismo cobro duplicado cada mañana; con el único sobre
+ * (userId, fingerprint) un hecho es una fila y el `upsert` solo refresca la
+ * redacción. Sin esto, el usuario silencia la app en tres días.
+ */
+model Insight {
+  id          String      @id @default(cuid())
+  userId      String
+  kind        InsightKind
+  fingerprint String
+  title       String
+  body        String      @db.Text
+  /** 1 informativo, 2 conviene mirarlo, 3 cuesta dinero ya. Ordena el push. */
+  severity    Int         @default(1)
+  readAt      DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprint])
   @@index([userId, createdAt])
 }
