@@ -1,15 +1,20 @@
+import { Suspense } from "react";
+import Link from "next/link";
+import { ChevronRight, Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth/guards";
 import { getCashFlowProjection } from "@/services/finance/balance";
 import { expensesByCategory, monthlyTrend, topTransactions } from "@/services/finance/aggregations";
 import { getSubscriptions } from "@/services/finance/subscriptions";
+import { listCategories } from "@/actions/categories";
 import { formatCOP } from "@/lib/money";
 import { Money, MoneyInline } from "@/components/ui/money";
-import { Card, MicroLabel, Panel, Reveal } from "@/components/ui/surface";
+import { Card, MicroLabel, Panel, Reveal, Skeleton } from "@/components/ui/surface";
+import { PanelSkeleton } from "@/components/ui/route-skeleton";
+import { BalanceHero } from "@/components/home/balance-hero";
+import { PageHeader, IconAction } from "@/components/nav/page-header";
 import { CategoryBreakdown } from "@/components/charts/category-breakdown";
 import { MonthlyTrend } from "@/components/charts/monthly-trend";
 import { FixedVsVariable } from "@/components/charts/fixed-vs-variable";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 
 const MESES = [
   "Enero",
@@ -26,35 +31,72 @@ const MESES = [
   "Diciembre",
 ];
 
-export default async function HomePage() {
+/**
+ * La portada se sirve en dos tramos, no en uno.
+ *
+ * Las analíticas necesitan cinco consultas y la cifra grande tres. Sin frontera
+ * de suspense la pantalla entera espera a la más lenta, así que el usuario mira
+ * un hueco durante medio segundo para leer un número que ya estaba listo. Con
+ * la frontera, el balance sale en cuanto vuelve su consulta y los gráficos
+ * entran después, en su sitio y sin mover nada de lo que ya se leía —por eso
+ * los esqueletos tienen la geometría exacta de lo que sustituyen—.
+ *
+ * Los dos tramos arrancan a la vez: son hermanos, no una cadena.
+ */
+export default function HomePage() {
+  return (
+    <div className="space-y-8">
+      {/*
+        Ajustes vive aquí y solo aquí: es la única pestaña sin acción propia, y
+        una tuerca repetida en las cinco cabeceras compite con la acción real de
+        cada pantalla.
+      */}
+      <PageHeader
+        title="Inicio"
+        action={<IconAction icon={Settings} label="Ajustes" href="/settings" />}
+      />
+
+      <Suspense fallback={<OverviewFallback />}>
+        <Overview />
+      </Suspense>
+
+      <Suspense fallback={<InsightsFallback />}>
+        <Insights />
+      </Suspense>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Tramo 1: la cifra
+   ───────────────────────────────────────────────────────── */
+
+async function Overview() {
   const user = await requireUser();
-  const [flow, byCategory, trend, top, subs] = await Promise.all([
-    getCashFlowProjection(user.id),
-    expensesByCategory(user.id),
-    monthlyTrend(user.id),
-    topTransactions(user.id),
-    getSubscriptions(user.id),
-  ]);
+  const [flow, categories] = await Promise.all([getCashFlowProjection(user.id), listCategories()]);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {/*
         Anatomía fija del bloque superior (§2.1): micro label → cifra → delta.
         La cifra es la única mancha negra grande de la pantalla y necesita 32px
         de vacío alrededor: el espacio es lo que la convierte en principal.
       */}
       <Reveal>
-        <section className="pt-2 pb-2">
-          <MicroLabel>Saldo · {MESES[flow.periodStart.getMonth()]}</MicroLabel>
-          <Money amount={flow.balance} size="xl" className="mt-2.5" />
-          <p className="text-ink-2 mt-3 text-[13px] leading-[18px]">
-            disponible tras {formatCOP(flow.expense)} en egresos
-            {flow.savings > 0 && <> y {formatCOP(flow.savings)} guardados en metas</>}
-            {flow.pendingFixed > 0 && (
-              <> · quedan {formatCOP(flow.pendingFixed)} de fijos por cargar</>
-            )}
-          </p>
-        </section>
+        <BalanceHero
+          balance={flow.balance}
+          monthLabel={MESES[flow.periodStart.getMonth()]}
+          categories={categories}
+          detail={
+            <>
+              disponible tras {formatCOP(flow.expense)} en egresos
+              {flow.savings > 0 && <> y {formatCOP(flow.savings)} guardados en metas</>}
+              {flow.pendingFixed > 0 && (
+                <> · quedan {formatCOP(flow.pendingFixed)} de fijos por cargar</>
+              )}
+            </>
+          }
+        />
       </Reveal>
 
       {/*
@@ -78,13 +120,52 @@ export default async function HomePage() {
           )}
         </Card>
       </Reveal>
+    </div>
+  );
+}
 
+/*
+ * El esqueleto mide lo que mide el contenido real: si el hueco fuera más corto,
+ * la llegada de la cifra empujaría los gráficos hacia abajo y el usuario
+ * perdería la línea que estaba leyendo.
+ */
+function OverviewFallback() {
+  return (
+    <div className="space-y-8" aria-hidden>
+      <Skeleton className="h-[248px] rounded-[22px]" />
+      <Skeleton className="rounded-card h-[168px] sm:h-[88px]" />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Tramo 2: las analíticas
+   ───────────────────────────────────────────────────────── */
+
+async function Insights() {
+  const user = await requireUser();
+  // Cinco consultas independientes, una sola espera: en cadena serían cinco
+  // idas y vueltas a Neon apiladas. `flow` ya viene memoizado del tramo de
+  // arriba, así que pedirlo aquí no cuesta una consulta más.
+  const [flow, byCategory, trend, top, subs] = await Promise.all([
+    getCashFlowProjection(user.id),
+    expensesByCategory(user.id),
+    monthlyTrend(user.id),
+    topTransactions(user.id),
+    getSubscriptions(user.id),
+  ]);
+
+  return (
+    <div className="space-y-8">
+      {/* Destino del acceso «Analíticas» de la portada. */}
       <Reveal step={2}>
-        <Panel title="Gasto por categoría" hint="En qué se te fue la plata este mes.">
-          <Card className="p-4">
-            <CategoryBreakdown data={byCategory} />
-          </Card>
-        </Panel>
+        <div id="analiticas" className="scroll-mt-20">
+          <Panel title="Gasto por categoría" hint="En qué se te fue la plata este mes.">
+            <Card className="p-4">
+              <CategoryBreakdown data={byCategory} />
+            </Card>
+          </Panel>
+        </div>
       </Reveal>
 
       <Reveal step={3}>
@@ -157,6 +238,18 @@ export default async function HomePage() {
           )}
         </Card>
       </Panel>
+    </div>
+  );
+}
+
+/* Misma pieza que usa `loading.tsx`: dos esqueletos distintos para la misma
+   sección acaban divergiendo, y el que se quede corto produce el salto. */
+function InsightsFallback() {
+  return (
+    <div className="space-y-8" aria-hidden>
+      <PanelSkeleton />
+      <PanelSkeleton height="h-32" />
+      <PanelSkeleton />
     </div>
   );
 }

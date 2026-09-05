@@ -73,6 +73,22 @@
    */
   --glow: rgb(255 255 255 / 0.62);
 
+  /*
+   * Malla de la tarjeta de bienvenida. Es el mismo recurso que `--glow` llevado
+   * a una superficie: luz curvada, no color. La referencia visual era un
+   * degradado azul; aquí la profundidad la dan tres escalones de la propia
+   * tinta sobre blanco, porque un acento en la primera cifra de la pantalla es
+   * exactamente lo que el sistema monocromo evita.
+   *
+   * En claro la base es blanca —lo que flota— y las ondas son tinta muy
+   * diluida. Por encima del 12% dejan de leerse como luz y empiezan a leerse
+   * como suciedad de impresión.
+   */
+  --hero-base: var(--white);
+  --hero-1: rgb(10 10 11 / 0.11);
+  --hero-2: rgb(10 10 11 / 0.05);
+  --hero-3: rgb(255 255 255 / 0.85);
+
   --shimmer: rgb(10 10 11 / 0.07);
   --elevation: 0 1px 2px rgb(10 10 11 / 0.05), 0 8px 24px -12px rgb(10 10 11 / 0.16);
 }
@@ -100,6 +116,13 @@
     --bubble-ink: #f7f7f8;
 
     --glow: rgb(255 255 255 / 0.07);
+
+    /* Un peldaño por encima de `surface`: la tarjeta de bienvenida es lo más
+       elevado del tema oscuro, y las ondas suben desde ahí en blanco. */
+    --hero-base: #1d1d21;
+    --hero-1: rgb(255 255 255 / 0.1);
+    --hero-2: rgb(255 255 255 / 0.045);
+    --hero-3: rgb(255 255 255 / 0.02);
 
     --shimmer: rgb(255 255 255 / 0.08);
     --elevation: 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 32px -16px rgb(0 0 0 / 0.8);
@@ -161,6 +184,30 @@
 }
 @utility duration-page {
   transition-duration: 380ms;
+}
+
+/**
+ * Malla de la tarjeta de bienvenida. Cuatro capas estáticas: tres blooms
+ * radiales que colocan los focos y un cónico que curva la transición entre
+ * ellos, que es lo que da la sensación de onda.
+ *
+ * Se pinta una vez y no se anima nunca: un degradado en movimiento repinta el
+ * área entera en cada frame y compite con la ruta del registro rápido.
+ */
+@utility hero-mesh {
+  background:
+    radial-gradient(118% 88% at 10% 16%, var(--hero-1) 0%, transparent 56%),
+    radial-gradient(92% 78% at 90% 8%, var(--hero-2) 0%, transparent 60%),
+    radial-gradient(105% 95% at 72% 104%, var(--hero-1) 0%, transparent 58%),
+    conic-gradient(
+      from 208deg at 56% 44%,
+      var(--hero-2),
+      transparent 22%,
+      var(--hero-3) 52%,
+      transparent 76%,
+      var(--hero-2)
+    ),
+    var(--hero-base);
 }
 
 @keyframes shimmer {

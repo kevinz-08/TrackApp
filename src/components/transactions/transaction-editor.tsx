@@ -38,16 +38,24 @@ export function TransactionEditor({
   transaction,
   categories,
   onClose,
+  initialType = "EXPENSE",
 }: {
   transaction: EditableTransaction | null;
   categories: CategoryOption[];
   onClose: () => void;
+  /**
+   * Tipo con el que abre el formulario al crear. Existe para los accesos
+   * directos de la portada: si «Ingreso» abriera en egreso, el usuario tendría
+   * que corregir el segmentado en el primer gesto, y ese gesto es justo el que
+   * el atajo venía a ahorrar. En edición manda el tipo guardado.
+   */
+  initialType?: "INCOME" | "EXPENSE";
 }) {
   const isNew = transaction === null;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [type, setType] = useState<"INCOME" | "EXPENSE">(transaction?.type ?? "EXPENSE");
+  const [type, setType] = useState<"INCOME" | "EXPENSE">(transaction?.type ?? initialType);
   const [amount, setAmount] = useState(transaction ? String(transaction.amount) : "");
   const [description, setDescription] = useState(transaction?.description ?? "");
   const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? "");
