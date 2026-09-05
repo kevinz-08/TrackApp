@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,7 +18,30 @@ import { cn } from "@/lib/utils";
  *
  * `will-change` se pide en `pointerdown` y se devuelve al soltar: dejarlo fijo
  * mantiene una capa de GPU viva durante toda la vida de la hoja.
+ *
+ * La hoja se monta SIEMPRE en `document.body` a través de un portal, nunca en
+ * el sitio del árbol donde se invoca. `position: fixed` no se resuelve contra
+ * la ventana si algún ancestro tiene `transform`, `filter` o `contain`: pasa a
+ * resolverse contra ese ancestro. Y este sistema está lleno de los tres —
+ * `Reveal` anima con `scaleY` y deja el transform puesto (`fill-mode: both`),
+ * y `Card` lleva `contain: layout paint`—, así que sin el portal la hoja
+ * aparece recortada dentro de la tarjeta desde la que se abrió en lugar de
+ * cubrir la pantalla.
  */
+
+/**
+ * Detección de hidratación sin `setState` en un efecto: la fuente externa no
+ * cambia nunca, así que la suscripción es vacía y lo único que importa es que
+ * el servidor lea `false` y el cliente `true`. Un efecto que llama a
+ * `setMounted` haría lo mismo con un render en cascada de más.
+ */
+const noSubscribe = () => () => {};
+const useHydrated = () =>
+  useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
 
 /** Proyección de inercia con desaceleración, la misma idea que el scroll. */
 const project = (velocity: number, decelerationRate = 0.998) =>
@@ -41,6 +65,10 @@ export function Sheet({
   /** Historial corto de posiciones para estimar la velocidad al soltar. */
   const history = useRef<Array<{ y: number; t: number }>>([]);
 
+  // El portal solo existe en el cliente: en el render del servidor no hay
+  // `document`, así que la hoja no pinta nada hasta que hidrata.
+  const mounted = useHydrated();
+
   const paint = useCallback((y: number, animated: boolean) => {
     const el = panel.current;
     if (!el) return;
@@ -53,13 +81,13 @@ export function Sheet({
   // Al abrir, entra desde abajo. Se pinta en el primer frame para que la
   // transición tenga un estado inicial del que partir.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !mounted) return;
     const el = panel.current;
     if (!el) return;
     paint(el.offsetHeight || 480, false);
     const id = requestAnimationFrame(() => paint(0, true));
     return () => cancelAnimationFrame(id);
-  }, [open, paint]);
+  }, [open, mounted, paint]);
 
   // Escape cierra, y mientras la hoja está abierta el fondo no scrollea.
   useEffect(() => {
@@ -74,7 +102,7 @@ export function Sheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const onDown = (e: React.PointerEvent) => {
     // Interrumpir: se parte de la posición REAL en pantalla, no de la lógica.
@@ -120,7 +148,7 @@ export function Sheet({
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         type="button"
@@ -135,7 +163,7 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "bg-surface border-hairline relative w-full max-w-md border-t sm:rounded-card sm:border",
+          "bg-surface border-hairline sm:rounded-card relative w-full max-w-md border-t sm:border",
           "rounded-t-[20px] pb-[max(1.25rem,env(safe-area-inset-bottom))]",
           "max-h-[88dvh] overflow-y-auto overscroll-contain",
         )}
@@ -146,13 +174,14 @@ export function Sheet({
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
-          className="flex touch-none cursor-grab justify-center py-3 select-none active:cursor-grabbing"
+          className="flex cursor-grab touch-none justify-center py-3 select-none active:cursor-grabbing"
         >
           <span aria-hidden className="bg-hairline h-1 w-9 rounded-full" />
         </div>
 
         <div className="px-5 pb-1">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
