@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
-import { MicroLabel } from "@/components/ui/surface";
+import { PageHeader } from "@/components/nav/page-header";
 import { listCategories } from "@/actions/categories";
 import {
   TransactionList,
@@ -48,15 +48,11 @@ export default async function TransactionsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <MicroLabel>Movimientos</MicroLabel>
-          <p className="text-ink-2 text-[13px] leading-[18px]">
-            Los últimos 100. Toca una fila para editarla; deslízala a la izquierda para borrarla.
-          </p>
-        </div>
-        <NewTransactionButton categories={categories} />
-      </div>
+      <PageHeader
+        title="Movimientos"
+        hint="Los últimos 100. Toca una fila para editarla; deslízala a la izquierda para borrarla."
+        action={<NewTransactionButton categories={categories} />}
+      />
 
       {transactions.length === 0 ? (
         <p className="rounded-card border-hairline text-ink-2 border border-dashed px-6 py-10 text-center text-[13px]">

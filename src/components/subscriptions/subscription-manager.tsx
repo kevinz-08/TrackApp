@@ -14,6 +14,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, MicroLabel } from "@/components/ui/surface";
+import { PageHeader } from "@/components/nav/page-header";
 import { Money } from "@/components/ui/money";
 import { formatCOP } from "@/lib/money";
 import type { CategoryOption } from "@/components/transactions/transaction-editor";
@@ -46,13 +47,15 @@ export function SubscriptionManager({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <MicroLabel>Suscripciones</MicroLabel>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-          <Plus className="size-4" aria-hidden />
-          Nueva
-        </Button>
-      </div>
+      <PageHeader
+        title="Suscripciones"
+        action={
+          <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+            <Plus className="size-4" aria-hidden />
+            Nueva
+          </Button>
+        }
+      />
 
       {/*
         La cifra ANUAL es la figura principal, no la mensual. $27.000 al mes no
@@ -93,9 +96,7 @@ export function SubscriptionManager({
                   {FREQ_LABEL[s.frequency] ?? s.frequency} · {formatCOP(s.annual)} al año
                 </span>
               </span>
-              <span className="text-ink shrink-0 text-sm tabular-nums">
-                {formatCOP(s.amount)}
-              </span>
+              <span className="text-ink shrink-0 text-sm tabular-nums">{formatCOP(s.amount)}</span>
             </button>
           ))}
         </Card>
@@ -103,8 +104,8 @@ export function SubscriptionManager({
 
       {summary.active.some((s) => s.stale) && (
         <p className="text-ink-2 text-[13px] leading-[19px]">
-          Las marcadas como “revisar” llevan más de seis meses cobrándose sin que las
-          hayas tocado. No significa que sobren: solo que vale la pena confirmarlo.
+          Las marcadas como “revisar” llevan más de seis meses cobrándose sin que las hayas tocado.
+          No significa que sobren: solo que vale la pena confirmarlo.
         </p>
       )}
 
@@ -118,9 +119,7 @@ export function SubscriptionManager({
             {summary.cancelled.map((s) => (
               <div key={s.id} className="flex min-h-12 items-center gap-3 px-4 py-2.5">
                 <span className="min-w-0 flex-1">
-                  <span className="text-ink-2 block truncate text-sm line-through">
-                    {s.name}
-                  </span>
+                  <span className="text-ink-2 block truncate text-sm line-through">{s.name}</span>
                   <span className="text-ink-3 block text-[11.5px]">
                     {formatCOP(s.annual)} al año que ya no pagas
                   </span>
@@ -173,9 +172,9 @@ function SubscriptionSheet({
   const [pending, startTransition] = useTransition();
 
   const value = Number(amount) || 0;
-  const perYear = value * { WEEKLY: 52, MONTHLY: 12, BIMONTHLY: 6, QUARTERLY: 4, YEARLY: 1 }[
-    frequency as "MONTHLY"
-  ];
+  const perYear =
+    value *
+    { WEEKLY: 52, MONTHLY: 12, BIMONTHLY: 6, QUARTERLY: 4, YEARLY: 1 }[frequency as "MONTHLY"];
 
   const save = () => {
     if (!name.trim()) {
@@ -264,9 +263,7 @@ function SubscriptionSheet({
 
         {/* El anual se muestra mientras se escribe: es el dato que decide. */}
         {value > 0 && (
-          <p className="text-ink-2 text-[13px] leading-[19px]">
-            Son {formatCOP(perYear)} al año.
-          </p>
+          <p className="text-ink-2 text-[13px] leading-[19px]">Son {formatCOP(perYear)} al año.</p>
         )}
 
         {error && (
@@ -289,8 +286,8 @@ function SubscriptionSheet({
             {confirming ? (
               <>
                 <p className="text-ink-2 text-[13px] leading-[19px]">
-                  Se queda en el historial como cancelada, sumando al ahorro anual. Para
-                  borrarla del todo, usa “Borrar”.
+                  Se queda en el historial como cancelada, sumando al ahorro anual. Para borrarla
+                  del todo, usa “Borrar”.
                 </p>
                 <div className="flex gap-2">
                   <Button

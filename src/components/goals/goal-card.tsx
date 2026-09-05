@@ -35,7 +35,7 @@ export function GoalCard({ goal, onOpen }: { goal: GoalView; onOpen: () => void 
       onClick={onOpen}
       className={cn(
         "rounded-card border-hairline relative w-full overflow-hidden border text-left",
-        "transition-transform duration-base ease-standard active:scale-[0.99]",
+        "duration-base ease-standard transition-transform active:scale-[0.99]",
         hasImage ? "text-white" : "bg-surface text-ink",
       )}
     >

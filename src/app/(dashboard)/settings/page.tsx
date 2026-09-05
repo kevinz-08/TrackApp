@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, KeyRound, Repeat, Tags } from "lucide-react";
-import { Card, MicroLabel } from "@/components/ui/surface";
+import { Card } from "@/components/ui/surface";
+import { PageHeader } from "@/components/nav/page-header";
 import { PushSettings } from "@/components/pwa/push-settings";
 
 export const metadata = { title: "Ajustes — TrackApp" };
@@ -29,7 +30,7 @@ const ITEMS = [
 export default function SettingsPage() {
   return (
     <div className="space-y-5">
-      <MicroLabel>Ajustes</MicroLabel>
+      <PageHeader title="Ajustes" />
 
       <PushSettings vapidKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
 

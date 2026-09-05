@@ -13,6 +13,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Field, Input, SegmentedField } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { EmptyState, MicroLabel } from "@/components/ui/surface";
+import { PageHeader } from "@/components/nav/page-header";
 import { ImageField, type UploadedImage } from "./image-field";
 import { GoalCard, type GoalView } from "./goal-card";
 import { formatCOP } from "@/lib/money";
@@ -27,13 +28,15 @@ export function GoalManager({ goals }: { goals: GoalView[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <MicroLabel>Metas</MicroLabel>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-          <Plus className="size-4" aria-hidden />
-          Nueva
-        </Button>
-      </div>
+      <PageHeader
+        title="Metas"
+        action={
+          <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+            <Plus className="size-4" aria-hidden />
+            Nueva
+          </Button>
+        }
+      />
 
       {goals.length === 0 ? (
         <EmptyState message="Sin metas todavía. Crea una y ponle una foto de lo que estás ahorrando." />

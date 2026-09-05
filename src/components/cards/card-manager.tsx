@@ -12,6 +12,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Field, Input, SegmentedField } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, MicroLabel } from "@/components/ui/surface";
+import { PageHeader } from "@/components/nav/page-header";
 import { formatCOP } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -40,13 +41,17 @@ export function CardManager({ cards }: { cards: CardView[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <MicroLabel>Tarjetas</MicroLabel>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-          <Plus className="size-4" aria-hidden />
-          Nueva
-        </Button>
-      </div>
+      {/* La cabecera vive en el manager y no en la página porque la acción
+          abre una hoja, y esa hoja es estado de cliente. */}
+      <PageHeader
+        title="Tarjetas"
+        action={
+          <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+            <Plus className="size-4" aria-hidden />
+            Nueva
+          </Button>
+        }
+      />
 
       {cards.length === 0 ? (
         <EmptyState message="Sin tarjetas. Añade una para simular compras a cuotas y entender qué te cuesta el crédito." />
@@ -61,9 +66,8 @@ export function CardManager({ cards }: { cards: CardView[] }) {
       <Card className="space-y-2 p-4">
         <MicroLabel>Sobre el crédito</MicroLabel>
         <p className="text-ink-2 text-[13px] leading-[19px]">
-          Aquí no se conecta ningún banco ni se guarda ningún número de tarjeta. Los datos
-          los pones tú, y sirven para una sola cosa: ver cuánto cuesta de verdad una compra
-          antes de hacerla.
+          Aquí no se conecta ningún banco ni se guarda ningún número de tarjeta. Los datos los pones
+          tú, y sirven para una sola cosa: ver cuánto cuesta de verdad una compra antes de hacerla.
         </p>
       </Card>
 
@@ -114,9 +118,7 @@ function CardRow({ card, onOpen }: { card: CardView; onOpen: () => void }) {
       </div>
 
       <div>
-        <p className="text-ink text-[22px] font-bold tabular-nums">
-          {formatCOP(card.currentDebt)}
-        </p>
+        <p className="text-ink text-[22px] font-bold tabular-nums">{formatCOP(card.currentDebt)}</p>
         <p className="text-ink-3 text-[12px]">de {formatCOP(card.creditLimit)} de cupo</p>
       </div>
 
@@ -404,9 +406,9 @@ function SimulatorSheet({
               {plan.totalInterest > 0 ? (
                 <>
                   Diferir esta compra a {installments} cuotas te cuesta{" "}
-                  {formatCOP(plan.totalInterest)} de más: un {plan.overpayPercent}% sobre el
-                  precio. Es lo mismo que si el producto costara{" "}
-                  {formatCOP(plan.totalPaid)} en vez de {formatCOP(Number(amount) || 0)}.
+                  {formatCOP(plan.totalInterest)} de más: un {plan.overpayPercent}% sobre el precio.
+                  Es lo mismo que si el producto costara {formatCOP(plan.totalPaid)} en vez de{" "}
+                  {formatCOP(Number(amount) || 0)}.
                 </>
               ) : (
                 <>Sin tasa configurada no hay intereses que calcular.</>
@@ -417,8 +419,8 @@ function SimulatorSheet({
           <div className="space-y-4">
             {card.currentDebt === 0 ? (
               <p className="text-ink-2 text-[13px] leading-[19px]">
-                No tienes deuda registrada en esta tarjeta. Anota tu saldo actual al editarla
-                para ver esta proyección.
+                No tienes deuda registrada en esta tarjeta. Anota tu saldo actual al editarla para
+                ver esta proyección.
               </p>
             ) : (
               <>
@@ -426,9 +428,7 @@ function SimulatorSheet({
                   <Row label="Deuda actual" value={formatCOP(card.currentDebt)} />
                   <Row
                     label="Tiempo en liquidarla"
-                    value={
-                      minimum.neverEnds ? "Nunca" : `${minimum.months} meses`
-                    }
+                    value={minimum.neverEnds ? "Nunca" : `${minimum.months} meses`}
                     strong
                   />
                   <Row
@@ -440,16 +440,16 @@ function SimulatorSheet({
                 <p className="text-ink-2 text-[13px] leading-[19px]">
                   {minimum.neverEnds ? (
                     <>
-                      Pagando solo el mínimo, la cuota no alcanza a cubrir ni los intereses
-                      del mes: la deuda crece aunque pagues puntual, todos los meses, para
-                      siempre. Esto es lo que hace el pago mínimo cuando la tasa es alta.
+                      Pagando solo el mínimo, la cuota no alcanza a cubrir ni los intereses del mes:
+                      la deuda crece aunque pagues puntual, todos los meses, para siempre. Esto es
+                      lo que hace el pago mínimo cuando la tasa es alta.
                     </>
                   ) : (
                     <>
-                      Pagando solo el mínimo tardarías {minimum.months} meses y habrías
-                      entregado {formatCOP(minimum.totalInterest)} solo en intereses, sobre
-                      una deuda de {formatCOP(card.currentDebt)}. El mínimo está diseñado
-                      para que la deuda dure, no para que se acabe.
+                      Pagando solo el mínimo tardarías {minimum.months} meses y habrías entregado{" "}
+                      {formatCOP(minimum.totalInterest)} solo en intereses, sobre una deuda de{" "}
+                      {formatCOP(card.currentDebt)}. El mínimo está diseñado para que la deuda dure,
+                      no para que se acabe.
                     </>
                   )}
                 </p>
