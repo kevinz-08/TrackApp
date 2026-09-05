@@ -65,12 +65,20 @@ export function RowsSkeleton({ rows = 6, className }: { rows?: number; className
   );
 }
 
-/** Sección con rótulo, pista y una tarjeta grande: el patrón de `Panel`. */
+/**
+ * Sección con título, pista y una tarjeta grande: el patrón de `Panel`.
+ *
+ * El bloque del título mide 36px, no 11: `Panel` usa el mismo rótulo que el
+ * nombre de la ruta. Un esqueleto con la altura del rótulo antiguo empujaría
+ * toda la columna hacia abajo al llegar los datos.
+ */
 export function PanelSkeleton({ height = "h-56" }: { height?: string }) {
   return (
-    <div className="space-y-3" aria-hidden>
-      <Skeleton className="h-[11px] w-32" />
-      <Skeleton className="h-[13px] w-56" />
+    <div className="space-y-4" aria-hidden>
+      <div className="space-y-1.5">
+        <Skeleton className="h-[36px] w-56" />
+        <Skeleton className="h-[13px] w-64" />
+      </div>
       <Skeleton className={cn("rounded-card", height)} />
     </div>
   );

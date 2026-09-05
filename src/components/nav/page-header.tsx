@@ -32,9 +32,9 @@ export function PageHeader({
   return (
     <header className="flex items-start justify-between gap-4">
       <div className="min-w-0 space-y-1.5">
-        <h1 className="text-ink text-[32px] leading-[36px] font-bold tracking-[-0.03em]">
-          {title}
-        </h1>
+        {/* `text-title` vive en globals.css y lo comparte con `Panel`: el
+            nombre de la ruta y el de cada sección son el mismo rótulo. */}
+        <h1 className="text-ink text-title">{title}</h1>
         {hint && <p className="text-ink-2 max-w-[58ch] text-[13px] leading-[18px]">{hint}</p>}
       </div>
 

@@ -186,6 +186,27 @@
   --animate-rise: rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/**
+ * Título de nivel superior: el nombre de la ruta y el de cada sección de la
+ * portada.
+ *
+ * Es una utilidad y no dos cadenas de clases repetidas porque son el MISMO
+ * rótulo tipográfico en dos sitios (`PageHeader` y `Panel`). Escrito dos veces,
+ * el día que alguien ajuste el interletraje del título de ruta las secciones de
+ * la portada se quedan atrás y el desajuste no se ve hasta tenerlas una encima
+ * de otra.
+ *
+ * El interletraje negativo no es adorno: a 32px el espaciado por defecto de SF
+ * abre demasiado, y a este tamaño el diseño óptico pasa de Text a Display, que
+ * ya viene con menos aire entre glifos.
+ */
+@utility text-title {
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
 /* Duraciones del sistema. Nada supera 400ms salvo el trazado del checkmark. */
 @utility duration-instant {
   transition-duration: 80ms;

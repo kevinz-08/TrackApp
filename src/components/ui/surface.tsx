@@ -44,7 +44,21 @@ export function MicroLabel({ className, children, ...props }: React.ComponentPro
   );
 }
 
-/** Sección con título y pista. El aire alrededor es lo que crea la jerarquía. */
+/**
+ * Sección con título y pista. El aire alrededor es lo que crea la jerarquía.
+ *
+ * El título usa `text-title`, el mismo rótulo que el nombre de la ruta en
+ * `PageHeader`: en la portada, «Gasto por categoría» y «Suscripciones» se leen
+ * como secciones de pleno derecho y no como pies de foto de la tarjeta que
+ * viene debajo, que es lo que pasaba con el rótulo en versalitas.
+ *
+ * Es `h2` y no `h1`: visualmente son iguales, pero el `h1` de la pantalla ya lo
+ * pone `PageHeader`, y un documento con seis `h1` deja a un lector de pantalla
+ * sin forma de saltar entre secciones.
+ *
+ * El hueco hasta el contenido sube a 16px: a 11px en versalitas bastaban 12,
+ * pero un título de 32px necesita más aire debajo o la tarjeta se le pega.
+ */
 export function Panel({
   title,
   hint,
@@ -55,10 +69,10 @@ export function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <div className="space-y-1">
-        <MicroLabel>{title}</MicroLabel>
-        {hint && <p className="text-ink-2 text-[13px] leading-[18px]">{hint}</p>}
+    <section className="space-y-4">
+      <div className="space-y-1.5">
+        <h2 className="text-ink text-title">{title}</h2>
+        {hint && <p className="text-ink-2 max-w-[58ch] text-[13px] leading-[18px]">{hint}</p>}
       </div>
       {children}
     </section>
