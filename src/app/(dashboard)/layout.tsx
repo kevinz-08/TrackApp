@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker";
 import { getUser } from "@/lib/auth/guards";
+import { aiEnabled } from "@/services/ai/groq";
+import { AssistantDock } from "@/components/chat/assistant-dock";
+import { initialFrom } from "@/components/chat/greeting";
 import { TabBar } from "@/components/nav/tab-bar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Misma resolución memoizada que usa la página: la sesión se verifica una
   // vez por petición, no una por componente que la pida.
-  if (!(await getUser())) redirect("/login");
+  const user = await getUser();
+  if (!user) redirect("/login");
 
   return (
     <div className="flex flex-1 flex-col">
@@ -30,6 +34,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </main>
 
       <TabBar />
+
+      {/*
+        El asistente flotante se monta aquí y no en cada página: así existe en
+        toda la app sin que ninguna vista tenga que acordarse de ponerlo, y su
+        estado sobrevive a la navegación entre rutas porque el layout no se
+        vuelve a montar.
+
+        Sin `GROQ_API_KEY` no se pinta. Un botón que abre una hoja para decir
+        que el asistente no está configurado es peor que no tener el botón: la
+        app registra transacciones igual, y ese es el principio de que la IA no
+        sea crítica.
+      */}
+      {aiEnabled() && <AssistantDock userInitial={initialFrom(user.name, user.email)} />}
     </div>
   );
 }

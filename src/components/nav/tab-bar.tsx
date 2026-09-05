@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeftRight, CreditCard, House, Sparkles, Target, type LucideIcon } from "lucide-react";
+import { chatHrefFrom } from "@/lib/chat-routes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -138,10 +139,18 @@ export function TabBar() {
       <ul className="mx-auto flex max-w-4xl">
         {TABS.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
+          /*
+           * El asistente se lleva puesto de dónde viene. Es la única pestaña
+           * que lo necesita: su comportamiento cambia según la vista que el
+           * usuario acaba de dejar, y dentro de /chat esa información ya no
+           * existe —`usePathname()` diría "/chat"—. Las demás pestañas usan su
+           * href tal cual.
+           */
+          const target = href === "/chat" ? chatHrefFrom(pathname) : href;
           return (
             <li key={href} className="flex-1">
               <Link
-                href={href}
+                href={target}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex min-h-[58px] flex-col items-center gap-1 px-0.5 pt-2 pb-1.5",

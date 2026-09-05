@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Scale, TrendingUp, Wallet, type LucideIcon } from "lucide-react";
-import { LogoMark } from "@/components/ui/logo";
+import type { ChatRoute } from "@/lib/chat-routes";
 import { cn } from "@/lib/utils";
-import { RichText } from "./rich-text";
+import { Transcript } from "./bubble";
+import { useAssistant, type ChatTurn } from "./use-assistant";
 
-export type ChatTurn = { role: "user" | "assistant"; content: string };
+export type { ChatTurn };
 
 /**
  * Las tres tarjetas de la pantalla en blanco.
@@ -56,106 +57,53 @@ export function ChatView({
   greeting,
   name,
   userInitial,
+  route,
 }: {
   sessionId: string | null;
   initial: ChatTurn[];
   greeting: string;
   name: string | null;
   userInitial: string;
+  /** Vista desde la que se abrió el asistente; cambia su foco y sus herramientas. */
+  route?: ChatRoute;
 }) {
   const router = useRouter();
-  const [sessionId, setSessionId] = useState(initialSessionId);
-  const [turns, setTurns] = useState<ChatTurn[]>(initial);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, busy]);
-
-  const send = async (text: string) => {
-    const question = text.trim();
-    if (!question || busy) return;
-
-    setError(null);
-    setInput("");
-    setBusy(true);
-
-    const next: ChatTurn[] = [...turns, { role: "user", content: question }];
-    setTurns([...next, { role: "assistant", content: "" }]);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Se manda la cola, no la conversación entera: en pantalla caben 100
-        // turnos y el esquema del endpoint acepta 40. El servidor recorta a 8
-        // para el modelo de todas formas, así que lo que va de más aquí es
-        // margen para esa ventana, no contexto que se aproveche.
-        body: JSON.stringify({
-          messages: next.slice(-20),
-          sessionId: sessionId ?? undefined,
-        }),
-      });
-
-      if (!res.ok || !res.body) {
-        const message =
-          res.status === 503
-            ? "El asistente no está configurado todavía."
-            : res.status === 429
-              ? "Demasiadas consultas por ahora. Inténtalo en un rato."
-              : res.status === 404
-                ? "Esta conversación ya no existe. Empieza una nueva."
-                : "No se pudo responder. Inténtalo de nuevo.";
-        setError(message);
-        setTurns(next);
-        return;
-      }
-
-      // El servidor decide con qué conversación se habló: si era nueva, este es
-      // el id que acaba de crear.
-      const assigned = res.headers.get("X-Chat-Session");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let answer = "";
-
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        answer += decoder.decode(value, { stream: true });
-        // Se reemplaza siempre la última burbuja: es la del asistente en curso.
-        setTurns([...next, { role: "assistant", content: answer }]);
-      }
-
-      if (!answer.trim()) {
-        setError("El asistente no devolvió respuesta.");
-        setTurns(next);
-      }
-
+  const { turns, busy, error, streaming, send } = useAssistant({
+    sessionId: initialSessionId,
+    initial,
+    route,
+    onSettled: (assigned, isNew) => {
       /*
        * La URL se corrige AL FINAL, no al recibir la cabecera: `replace` vuelve
        * a renderizar la página en el servidor, y hacerlo con el stream abierto
        * mete un repintado en mitad de la escritura. Al terminar, además, el
        * refresco trae el historial ya con esta conversación dentro.
+       *
+       * El origen se conserva: sin él, el `replace` de la primera respuesta
+       * dejaría al asistente sin contexto de vista para el resto de la
+       * conversación.
        */
-      if (assigned && assigned !== sessionId) {
-        setSessionId(assigned);
-        router.replace(`/chat?c=${assigned}`, { scroll: false });
-      } else if (assigned) {
+      if (isNew) {
+        router.replace(`/chat?c=${assigned}${route ? `&from=${encodeURIComponent(route)}` : ""}`, {
+          scroll: false,
+        });
+      } else {
         router.refresh();
       }
-    } catch {
-      setError("Se perdió la conexión con el asistente.");
-      setTurns(next);
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
 
-  const streaming = busy && turns.at(-1)?.role === "assistant" && !turns.at(-1)?.content;
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [turns, busy]);
+
+  const submit = (text: string) => {
+    setInput("");
+    void send(text);
+  };
 
   return (
     /*
@@ -167,22 +115,9 @@ export function ChatView({
     <div className="mx-auto flex w-full max-w-3xl flex-col">
       <div className="min-h-[calc(100dvh-var(--tabbar-h)-13rem)] flex-1">
         {turns.length === 0 ? (
-          <Welcome greeting={greeting} name={name} onPick={send} />
+          <Welcome greeting={greeting} name={name} onPick={submit} />
         ) : (
-          <div className="space-y-1">
-            {turns.map((t, i) => (
-              <Bubble
-                key={i}
-                turn={t}
-                userInitial={userInitial}
-                // Solo la primera de una tanda lleva avatar: repetirlo en cada
-                // burbuja convierte una respuesta larga en una columna de
-                // teselas que compite con el texto.
-                showAvatar={turns[i - 1]?.role !== t.role}
-                thinking={streaming && i === turns.length - 1}
-              />
-            ))}
-          </div>
+          <Transcript turns={turns} userInitial={userInitial} streaming={streaming} />
         )}
 
         {error && (
@@ -202,7 +137,7 @@ export function ChatView({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          send(input);
+          submit(input);
         }}
         className="bg-ground sticky bottom-[var(--tabbar-h)] flex items-end gap-2 py-3"
       >
@@ -213,7 +148,7 @@ export function ChatView({
             // Enter envía; Shift+Enter hace salto de línea.
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              send(input);
+              submit(input);
             }
           }}
           rows={1}
@@ -323,92 +258,5 @@ function Welcome({
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Una burbuja con su avatar.
- *
- * El avatar se alinea arriba y no abajo: con respuestas largas del asistente,
- * anclarlo al pie deja la marca a varios párrafos de la primera línea y ya no
- * se lee como el autor del mensaje.
- *
- * Por eso mismo la esquina que se endereza es la SUPERIOR del lado del emisor
- * —la que toca el avatar—: es la que convierte el rectángulo en un globo que
- * apunta a quien habla. Enderezar la de abajo, con el avatar arriba, deja el
- * pico apuntando al vacío.
- *
- * Los dos avatares se distinguen por dos canales, no por uno: forma (tesela
- * redondeada frente a círculo) y relleno (tinta frente a superficie). Un solo
- * salto de luminancia entre dos grises es ambiguo a la luz del sol, que es
- * donde se usa esta app.
- */
-function Bubble({
-  turn,
-  userInitial,
-  showAvatar,
-  thinking,
-}: {
-  turn: ChatTurn;
-  userInitial: string;
-  showAvatar: boolean;
-  thinking: boolean;
-}) {
-  const mine = turn.role === "user";
-
-  return (
-    <div className={cn("flex items-start gap-2 py-1", mine ? "flex-row-reverse" : "flex-row")}>
-      {/* El hueco se reserva siempre, lleve avatar o no: si no, las burbujas
-          seguidas del mismo autor se desalinean media tesela. */}
-      <div className="w-7 shrink-0 pt-0.5">
-        {showAvatar &&
-          (mine ? (
-            <span
-              aria-hidden
-              className="border-hairline bg-surface text-ink grid size-7 place-items-center rounded-full border text-[11px] font-semibold"
-            >
-              {userInitial}
-            </span>
-          ) : (
-            <LogoMark />
-          ))}
-      </div>
-
-      <div
-        className={cn(
-          // break-words es lo que impide que una cifra o una URL sin espacios
-          // desborde la burbuja y choque contra el borde.
-          "max-w-[85%] px-4 py-2.5 text-sm leading-relaxed break-words sm:max-w-[75%]",
-          mine
-            ? "bg-bubble text-bubble-ink rounded-2xl rounded-tr-xs"
-            : "bg-surface border-hairline text-ink rounded-2xl rounded-tl-xs border",
-        )}
-      >
-        {turn.content ? (
-          mine ? (
-            <p className="whitespace-pre-line">{turn.content}</p>
-          ) : (
-            <RichText content={turn.content} />
-          )
-        ) : thinking ? (
-          <Thinking />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** Tres puntos con desfase: la única animación decorativa que se permite. */
-function Thinking() {
-  return (
-    <span className="flex items-center gap-1 py-1" aria-label="Pensando">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="bg-ink-3 size-1.5 animate-bounce rounded-full"
-          style={{ animationDelay: `${i * 140}ms` }}
-        />
-      ))}
-    </span>
   );
 }

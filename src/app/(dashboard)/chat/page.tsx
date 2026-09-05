@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth/guards";
+import { isChatRoute } from "@/lib/chat-routes";
 import { aiEnabled } from "@/services/ai/groq";
 import { listSessions, loadSession } from "@/services/chat/history";
 import { ChatView, type ChatTurn } from "@/components/chat/chat-view";
@@ -11,9 +12,16 @@ export const metadata = { title: "Asistente — TrackApp" };
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; from?: string }>;
 }) {
-  const [user, { c }] = await Promise.all([requireUser(), searchParams]);
+  const [user, { c, from }] = await Promise.all([requireUser(), searchParams]);
+
+  /*
+   * Desde qué vista se abrió el asistente. Se valida contra la lista cerrada
+   * antes de bajar al cliente: un `from` cualquiera de la URL no debe llegar
+   * al cuerpo de la petición, aunque el endpoint lo vuelva a validar.
+   */
+  const route = isChatRoute(from) ? from : undefined;
 
   /*
    * Sin parámetro se reanuda la conversación más reciente: entrar por la barra
@@ -69,6 +77,7 @@ export default async function ChatPage({
         greeting={randomGreeting()}
         name={firstNameFrom(user.name, user.email)}
         userInitial={initialFrom(user.name, user.email)}
+        route={route}
       />
     </div>
   );
