@@ -39,6 +39,7 @@ pnpm db:migrate     # prisma migrate dev
 pnpm db:seed        # categorías base + usuario inicial
 pnpm db:demo        # movimientos de ejemplo (db:demo:clear los borra)
 pnpm db:studio      # explorar la base
+pnpm eval:parser    # casos reales del parser de lenguaje natural (sin red ni base)
 ```
 
 ## Notas de entorno

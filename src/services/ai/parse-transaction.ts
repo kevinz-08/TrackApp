@@ -16,7 +16,7 @@ const MULTIPLIERS: Record<string, number> = {
   miles: 1_000,
   m: 1_000_000,
   millon: 1_000_000,
-  "millón": 1_000_000,
+  millón: 1_000_000,
   millones: 1_000_000,
 };
 
@@ -28,8 +28,24 @@ const MULTIPLIERS: Record<string, number> = {
  */
 const AMOUNT_RE = /(\d+(?:[.,]\d+)?)\s*(mill[oó]n(?:es)?|mil(?:es)?|k|m)?\b/;
 
+/**
+ * Cuantificadores que se escriben con palabra y no con dígito.
+ *
+ * "un millón de arriendo" no tiene ningún número que el regex pueda morder, y
+ * es una de las formas más comunes de decir una cifra grande. Sin esta pasada
+ * cae al fallback del LLM: funciona, pero gasta una llamada y ~600 ms en un
+ * caso que se resuelve con una sustitución.
+ */
+const WORD_QUANTIFIERS: Array<[RegExp, string]> = [
+  [/\bmedi[oa]\s+(mill[oó]n|mil)\b/g, "0.5 $1"],
+  [/\bun[ao]?\s+(mill[oó]n|mil)\b/g, "1 $1"],
+];
+
 export function parseAmount(text: string): number | null {
-  const normalized = text.toLowerCase().replace(/[.,](?=\d{3}\b)/g, "");
+  let normalized = text.toLowerCase().replace(/[.,](?=\d{3}\b)/g, "");
+  for (const [pattern, replacement] of WORD_QUANTIFIERS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
   const match = normalized.match(AMOUNT_RE);
   if (!match) return null;
 
@@ -39,7 +55,8 @@ export function parseAmount(text: string): number | null {
   return Math.round(base * mult);
 }
 
-const INCOME_HINTS = /\b(ingres[oé]|me pagaron|recib[íi]|salario|sueldo|n[oó]mina|cobr[eé]|venta)\b/i;
+const INCOME_HINTS =
+  /\b(ingres[oé]|me pagaron|recib[íi]|salario|sueldo|n[oó]mina|cobr[eé]|venta)\b/i;
 
 /**
  * Quita el monto y los conectores para quedarse con el concepto.
@@ -50,9 +67,30 @@ const INCOME_HINTS = /\b(ingres[oé]|me pagaron|recib[íi]|salario|sueldo|n[oó]
  * texto sin acentos.
  */
 const STOP_WORDS = new Set([
-  "gaste", "pague", "compre", "recibi", "me", "pagaron", "cobre",
-  "en", "de", "del", "por", "un", "una", "el", "la", "los", "las",
-  "pesos", "cop", "mil", "miles", "millon", "millones", "k",
+  "gaste",
+  "pague",
+  "compre",
+  "recibi",
+  "me",
+  "pagaron",
+  "cobre",
+  "en",
+  "de",
+  "del",
+  "por",
+  "un",
+  "una",
+  "el",
+  "la",
+  "los",
+  "las",
+  "pesos",
+  "cop",
+  "mil",
+  "miles",
+  "millon",
+  "millones",
+  "k",
 ]);
 
 const stripAccents = (w: string) => w.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -96,7 +134,9 @@ export async function parseFast(text: string, userId: string): Promise<ParseResu
  * Degradación elegante: si Groq no responde, devolvemos monto nulo y el
  * endpoint pide al usuario reformular — la app nunca se cae por la IA.
  */
-export async function parseWithLLM(text: string): Promise<{ amount: number | null; confidence: number }> {
+export async function parseWithLLM(
+  text: string,
+): Promise<{ amount: number | null; confidence: number }> {
   if (!process.env.GROQ_API_KEY) return { amount: null, confidence: 0 };
 
   try {
