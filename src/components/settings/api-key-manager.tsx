@@ -25,7 +25,7 @@ export function ApiKeyManager({ keys }: { keys: KeyRow[] }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           aria-label="Nombre del token"
-          className="rounded-btn border-hairline bg-surface text-ink duration-fast ease-standard focus:border-ink min-w-0 flex-1 border px-3.5 py-3 text-sm transition-colors"
+          className="rounded-btn border-hairline bg-surface text-ink duration-fast ease-standard focus:border-ink text-control min-w-0 flex-1 border px-3.5 py-3 transition-colors"
         />
         <Button
           disabled={pending}

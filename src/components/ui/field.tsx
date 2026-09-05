@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  */
 const CONTROL = [
   "w-full rounded-btn bg-sunken border border-transparent px-3.5 py-3 min-h-11",
-  "text-ink text-[15px] placeholder:text-ink-3",
+  "text-ink text-control placeholder:text-ink-3",
   "transition-[border-color,background-color] duration-base ease-standard",
   "focus:border-ink focus:outline-none",
   "disabled:opacity-50",
@@ -70,8 +70,8 @@ export function SegmentedField({
           <label
             key={option.value}
             className={cn(
-              "flex min-h-9 flex-1 cursor-pointer items-center justify-center rounded-chip text-[13px] font-semibold",
-              "transition-[background-color,color] duration-base ease-standard",
+              "rounded-chip flex min-h-9 flex-1 cursor-pointer items-center justify-center text-[13px] font-semibold",
+              "duration-base ease-standard transition-[background-color,color]",
               active ? "bg-surface text-ink shadow-sm" : "text-ink-2",
             )}
           >

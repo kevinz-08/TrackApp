@@ -219,7 +219,7 @@ export function ChatView({
           rows={1}
           placeholder="Pregunta algo…"
           aria-label="Pregunta para el asistente"
-          className="bg-sunken text-ink placeholder:text-ink-3 focus:border-ink duration-fast ease-standard max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-transparent px-4 py-3 text-[15px] leading-relaxed transition-colors focus:outline-none"
+          className="bg-sunken text-ink placeholder:text-ink-3 focus:border-ink duration-fast ease-standard text-control max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-transparent px-4 py-3 leading-relaxed transition-colors focus:outline-none"
         />
         <button
           type="submit"

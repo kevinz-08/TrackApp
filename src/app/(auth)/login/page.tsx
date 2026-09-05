@@ -7,7 +7,7 @@ import { LogoMark } from "@/components/ui/logo";
 export const metadata = { title: "Entrar — TrackApp" };
 
 const FIELD =
-  "w-full rounded-btn border border-hairline bg-surface px-3.5 py-3 text-[15px] text-ink placeholder:text-ink-3 transition-colors duration-fast ease-standard focus:border-ink";
+  "w-full rounded-btn border border-hairline bg-surface text-control px-3.5 py-3 text-ink placeholder:text-ink-3 transition-colors duration-fast ease-standard focus:border-ink";
 
 export default async function LoginPage() {
   const session = await auth();

@@ -155,6 +155,23 @@
     -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
+  /**
+   * Tamaño de fuente de TODO control editable. No es una preferencia
+   * tipográfica: es el umbral de Safari en iOS.
+   *
+   * Safari amplía la página al enfocar un `input`, `select` o `textarea` cuyo
+   * tamaño calculado sea menor de 16px, y NO deshace el zoom al salir del
+   * campo. La pantalla se queda ampliada y arrastrable de lado, dentro del
+   * formulario y en la ruta entera después de cerrarlo.
+   *
+   * Los 15px del resto del sistema se quedan como están; el salto a 16 vive
+   * solo aquí, donde tiene una razón de comportamiento. La otra salida
+   * —`maximum-scale=1`— apaga el pellizco para ampliar en toda la app y es una
+   * regresión de accesibilidad, además de que Safari la ignora fuera de la PWA
+   * instalada.
+   */
+  --text-control: 16px;
+
   --radius-card: 14px;
   --radius-btn: 12px;
   --radius-chip: 8px;
@@ -235,6 +252,21 @@
     /* El desplazamiento programado —foco en un campo del final, un ancla— tiene
        que parar por encima de la barra, no debajo. */
     scroll-padding-bottom: calc(var(--tabbar-h) + 1rem);
+
+    /*
+       Red de seguridad contra el arrastre lateral: aquí no hay nada que deba
+       salirse por los lados, así que si algún día un campo o una tabla se pasa
+       de ancho, se recorta en vez de convertir toda la app en un lienzo
+       deslizable.
+
+       `clip` y no `hidden`: `hidden` crearía un contenedor de scroll y rompería
+       las posiciones pegajosas —el velo de la safe area y el compositor del
+       chat— además de anular el `scroll-padding` de arriba.
+
+       No es el arreglo del zoom de iOS; ese vive en `--text-control`. Un
+       viewport ampliado se arrastra igual, lo recorte quien lo recorte.
+    */
+    overflow-x: clip;
   }
 
   body {
