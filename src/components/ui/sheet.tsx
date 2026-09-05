@@ -149,7 +149,13 @@ export function Sheet({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+    /*
+     * `pb` con el alto del teclado: la hoja se apoya en el borde inferior del
+     * viewport de maquetación, que en iOS no encoge al abrirse el teclado. Sin
+     * este hueco los campos del final quedan debajo y Safari desplaza la página
+     * para enseñarlos, que es lo que se ve como "el teclado empuja todo".
+     */
+    <div className="fixed inset-0 z-50 flex items-end justify-center pb-[var(--keyboard-h)] sm:items-center">
       <button
         type="button"
         aria-label="Cerrar"
@@ -165,7 +171,7 @@ export function Sheet({
         className={cn(
           "bg-surface border-hairline sm:rounded-card relative w-full max-w-md border-t sm:border",
           "rounded-t-[20px] pb-[max(1.25rem,env(safe-area-inset-bottom))]",
-          "max-h-[88dvh] overflow-y-auto overscroll-contain",
+          "max-h-[calc(88dvh-var(--keyboard-h))] overflow-y-auto overscroll-contain",
         )}
       >
         {/* El tirador es la zona de arrastre: da al gesto un blanco visible. */}

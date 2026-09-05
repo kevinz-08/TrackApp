@@ -63,6 +63,17 @@
   --tabbar-h: calc(62px + max(10px, env(safe-area-inset-bottom)));
 
   /*
+   * Alto del teclado en pantalla. Lo publica `KeyboardInset` desde
+   * `visualViewport`; aquí solo vive el valor de reposo, que es el que rige en
+   * escritorio y antes de que hidrate el cliente.
+   *
+   * Existe porque Safari de iOS no encoge el viewport de maquetación al abrir
+   * el teclado: sin esta medida, todo lo anclado abajo queda detrás del teclado
+   * y Safari lo compensa empujando la página entera hacia arriba.
+   */
+  --keyboard-h: 0px;
+
+  /*
    * Resplandor de la pantalla de bienvenida del chat. Es luz, no color: en el
    * mockup de referencia esa aura era el acento verde, y aquí la función —dar
    * profundidad a una pantalla vacía— la cumple un blanco que se disuelve.

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { KeyboardInset } from "@/components/ui/keyboard-inset";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,7 +42,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es-CO" className="h-full antialiased">
-      <body className="bg-ground text-ink flex min-h-full flex-col font-sans">{children}</body>
+      <body className="bg-ground text-ink flex min-h-full flex-col font-sans">
+        <KeyboardInset />
+        {children}
+      </body>
     </html>
   );
 }

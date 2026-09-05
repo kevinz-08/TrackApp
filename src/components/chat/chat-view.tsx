@@ -133,13 +133,20 @@ export function ChatView({
         El compositor se ancla POR ENCIMA de la tab bar. Con `bottom-0` se
         pegaba al borde del viewport, que es justo donde vive la barra fija: el
         input quedaba medio tapado en móvil.
+
+        Con el teclado abierto el suelo deja de ser la barra y pasa a ser el
+        teclado, que la tapa entera. De ahí el `max`: gana el que esté más
+        arriba, así que no hay que saber cuál de los dos manda en cada momento.
+        Sin esto, en Safari de iOS el compositor se queda midiendo contra un
+        borde inferior que el teclado oculta y Safari empuja la página entera
+        hacia arriba para compensar.
       */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           submit(input);
         }}
-        className="bg-ground sticky bottom-[var(--tabbar-h)] flex items-end gap-2 py-3"
+        className="bg-ground sticky bottom-[max(var(--tabbar-h),var(--keyboard-h))] flex items-end gap-2 py-3"
       >
         <textarea
           value={input}
