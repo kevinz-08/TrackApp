@@ -4,6 +4,7 @@ import { listSessions, loadSession } from "@/services/chat/history";
 import { ChatView, type ChatTurn } from "@/components/chat/chat-view";
 import { ChatSidebar, NEW_CHAT } from "@/components/chat/chat-sidebar";
 import { randomGreeting, initialFrom, firstNameFrom } from "@/components/chat/greeting";
+import { PageHeader } from "@/components/nav/page-header";
 
 export const metadata = { title: "Asistente — TrackApp" };
 
@@ -14,38 +15,47 @@ export default async function ChatPage({
 }) {
   const [user, { c }] = await Promise.all([requireUser(), searchParams]);
 
-  const sessions = await listSessions(user.id);
-
   /*
    * Sin parámetro se reanuda la conversación más reciente: entrar por la barra
    * inferior devuelve al usuario donde estaba, que es lo que espera de una
    * pestaña. Para empezar en blanco hace falta pedirlo (`?c=nuevo`), y esa
    * conversación no existe en la base hasta que se envía el primer mensaje.
+   *
+   * Con `?c=` en la URL ya se sabe qué conversación abrir, así que el historial
+   * y los mensajes salen a la base a la vez. Solo el caso «reanudar la última»
+   * obliga a encadenarlas: hasta que no vuelve la lista no se sabe cuál es.
    */
-  const wanted = c === NEW_CHAT ? null : (c ?? sessions[0]?.id ?? null);
-  const active = wanted ? await loadSession(user.id, wanted) : null;
+  const [sessions, active] =
+    c && c !== NEW_CHAT
+      ? await Promise.all([listSessions(user.id), loadSession(user.id, c)])
+      : await (async () => {
+          const list = await listSessions(user.id);
+          const wanted = c === NEW_CHAT ? null : (list[0]?.id ?? null);
+          return [list, wanted ? await loadSession(user.id, wanted) : null] as const;
+        })();
 
   const initial: ChatTurn[] = active?.turns ?? [];
 
   return (
     <div className="space-y-4">
       {/*
-        La cabecera es solo el disparador del menú. Ni rótulo de sección ni nota
-        de retención: en una pantalla cuyo trabajo es invitar a escribir, un
-        encabezado que repite el nombre de la pestaña y una advertencia de
-        borrado gastan el primer tercio de la pantalla sin ayudar a empezar. Los
-        días que le quedan a cada conversación siguen visibles donde importan,
-        en su fila del historial.
+        La acción de esta ruta es el historial, no «nuevo»: empezar en blanco ya
+        está dentro del menú, y desde aquí lo que falta siempre es volver a una
+        conversación anterior. La nota de retención no sube a la cabecera —los
+        días que le quedan a cada conversación se ven en su fila del historial,
+        que es donde se decide si importa—.
       */}
-      <div className="flex items-center gap-3">
-        <ChatSidebar sessions={sessions} activeId={active?.id ?? null} />
-
-        {!aiEnabled() && (
-          <p className="text-ink-2 text-[13px] leading-[18px]">
-            Falta configurar <code>GROQ_API_KEY</code>. El resto de la app funciona igual.
-          </p>
-        )}
-      </div>
+      <PageHeader
+        title="Asistente"
+        hint={
+          aiEnabled() ? undefined : (
+            <>
+              Falta configurar <code>GROQ_API_KEY</code>. El resto de la app funciona igual.
+            </>
+          )
+        }
+        action={<ChatSidebar sessions={sessions} activeId={active?.id ?? null} />}
+      />
 
       {/*
         La `key` remonta la vista al cambiar de conversación. Sin ella, React
