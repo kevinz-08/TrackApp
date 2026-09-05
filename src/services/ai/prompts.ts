@@ -1,4 +1,5 @@
 import type { Snapshot } from "@/services/ai/context";
+import type { ChatRoute } from "@/services/ai/tools/define";
 
 const total = (totals: Snapshot["totals"], type: "INCOME" | "EXPENSE") =>
   totals.find((t) => t.type === type)?._sum.amount ?? 0;
@@ -46,3 +47,29 @@ REGLAS:
 
 DATOS FINANCIEROS ACTUALES:
 {{SNAPSHOT}}`;
+
+/**
+ * Asistencia contextual: el PROPÓSITO cambia con la vista, las reglas no.
+ *
+ * Esto se añade al final del prompt base, nunca lo sustituye. Las reglas duras
+ * —no inventar cifras, no juzgar, los aportes a metas no son gasto— tienen que
+ * seguir vigentes en las cinco vistas; lo único que cambia es qué debe
+ * perseguir el agente mientras el usuario está ahí.
+ */
+const ROUTE_FOCUS: Partial<Record<ChatRoute, string>> = {
+  "/cards":
+    "El usuario está viendo sus tarjetas de crédito. Tu prioridad es protegerlo de pagar intereses: avísale de las fechas de corte y de pago, y cuando mencione una compra grande calcula el costo real del diferido con simularDiferido ANTES de opinar. Nunca estimes intereses de cabeza y nunca recomiendes pagar solo el mínimo.",
+  "/goals":
+    "El usuario está viendo sus metas de ahorro. Tu prioridad es que el plan sea realista contra su flujo de caja: usa planificarMeta para contrastar el ritmo necesario con su excedente real, propón una cifra semanal o mensual concreta y di de dónde saldría. Si la meta no cabe en sus ingresos, dilo con una alternativa —más plazo o menos monto—, nunca con un reproche.",
+  "/subscriptions":
+    "El usuario está viendo sus suscripciones. Tu prioridad es detectar cobros duplicados, servicios que lleva mucho sin revisar y el costo anualizado, que casi siempre sorprende más que el mensual. Sugerir cancelar es válido; insistir, no.",
+  "/transactions":
+    "El usuario está revisando sus movimientos. Tu prioridad es registrar y corregir rápido: si menciona un gasto, regístralo de una vez con registrarTransaccion sin pedirle que confirme datos que puedes inferir. Confirma después, con la cifra ya guardada.",
+};
+
+/** Prompt final: reglas base + snapshot + foco de la vista actual. */
+export function buildSystemPrompt(snapshot: Snapshot, route?: ChatRoute) {
+  const base = SYSTEM_PROMPT.replace("{{SNAPSHOT}}", renderSnapshot(snapshot));
+  const focus = route ? ROUTE_FOCUS[route] : undefined;
+  return focus ? `${base}\n\nCONTEXTO DE LA VISTA ACTUAL:\n${focus}` : base;
+}

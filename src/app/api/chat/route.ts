@@ -1,20 +1,14 @@
-import type Groq from "groq-sdk";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { groq, MODELS, aiEnabled } from "@/services/ai/groq";
+import { aiEnabled } from "@/services/ai/groq";
 import { buildSnapshot } from "@/services/ai/context";
-import { SYSTEM_PROMPT, renderSnapshot } from "@/services/ai/prompts";
-import { tools, runTool } from "@/services/ai/tools";
+import { buildSystemPrompt } from "@/services/ai/prompts";
+import { runAgent, type Message } from "@/services/ai/agent";
 import { chatSchema } from "@/lib/validation/schemas";
 import { chatExpiryFrom, titleFrom } from "@/services/chat/history";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
-
-type Message = Groq.Chat.Completions.ChatCompletionMessageParam;
-
-/** Una sola ronda de herramientas: suficiente para responder, imposible de ciclar. */
-const MAX_TOOL_ROUNDS = 1;
 
 /** Límite por usuario y hora. Existe desde el día uno aunque haya un solo usuario. */
 const HOURLY_LIMIT = 60;
@@ -81,7 +75,7 @@ export async function POST(req: Request) {
   const snapshot = await buildSnapshot(userId);
 
   const conversation: Message[] = [
-    { role: "system", content: SYSTEM_PROMPT.replace("{{SNAPSHOT}}", renderSnapshot(snapshot)) },
+    { role: "system", content: buildSystemPrompt(snapshot, parsed.data.route) },
     ...history.map((m) => ({ role: m.role, content: m.content }) as Message),
   ];
 
@@ -101,71 +95,28 @@ export async function POST(req: Request) {
       let answer = "";
 
       try {
-        for (let round = 0; ; round++) {
-          const useTools = round < MAX_TOOL_ROUNDS;
+        /*
+         * El bucle vive en `runAgent`: aquí solo se traducen sus eventos a
+         * bytes. Esa separación es lo que permite que el trabajo proactivo del
+         * cron use exactamente el mismo razonamiento sin duplicarlo.
+         */
+        const agent = runAgent(conversation, { userId, route: parsed.data.route });
 
-          const completion = await groq.chat.completions.create({
-            model: MODELS.chat,
-            stream: true,
-            temperature: 0.4,
-            max_tokens: 800,
-            messages: conversation,
-            ...(useTools && { tools, tool_choice: "auto" as const }),
-          });
-
-          /*
-           * El streaming entrega las llamadas a herramienta troceadas: cada
-           * delta trae un fragmento de los argumentos JSON, identificado por
-           * `index`. Hay que reensamblarlos antes de poder ejecutar nada.
-           */
-          const calls: Array<{ id: string; name: string; args: string }> = [];
-
-          for await (const chunk of completion) {
-            const delta = chunk.choices[0]?.delta;
-
-            for (const call of delta?.tool_calls ?? []) {
-              const slot = (calls[call.index] ??= { id: "", name: "", args: "" });
-              if (call.id) slot.id = call.id;
-              if (call.function?.name) slot.name = call.function.name;
-              if (call.function?.arguments) slot.args += call.function.arguments;
-            }
-
-            const text = delta?.content ?? "";
-            if (text) {
-              answer += text;
-              send(text);
-            }
+        let step = await agent.next();
+        while (!step.done) {
+          if (step.value.type === "text") {
+            answer += step.value.value;
+            send(step.value.value);
           }
-
-          const pending = calls.filter((c) => c?.name);
-          if (pending.length === 0) break;
-
-          conversation.push({
-            role: "assistant",
-            content: answer || null,
-            tool_calls: pending.map((c) => ({
-              id: c.id,
-              type: "function" as const,
-              function: { name: c.name, arguments: c.args || "{}" },
-            })),
-          } as Message);
-
-          for (const call of pending) {
-            let result: unknown;
-            try {
-              const args = call.args ? JSON.parse(call.args) : {};
-              // El userId se inyecta desde la sesión, jamás desde el modelo.
-              result = await runTool(call.name, args, userId);
-            } catch {
-              result = { ok: false, error: "La herramienta falló" };
-            }
-            conversation.push({
-              role: "tool",
-              tool_call_id: call.id,
-              content: JSON.stringify(result),
-            } as Message);
-          }
+          step = await agent.next();
         }
+
+        const { usage } = step.value;
+        // Una línea por conversación: sin esto, "¿cuánto cuesta un usuario al
+        // mes?" solo se puede responder mirando la factura de Groq.
+        console.info(
+          `[chat] usage user=${userId} route=${parsed.data.route ?? "-"} prompt=${usage.promptTokens} completion=${usage.completionTokens} rounds=${usage.rounds}`,
+        );
 
         if (answer.trim()) {
           await prisma.chatSession.update({

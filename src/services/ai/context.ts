@@ -38,7 +38,13 @@ export async function buildSnapshot(userId: string) {
     }),
     prisma.creditCard.findMany({
       where: { userId },
-      select: { name: true, currentDebt: true, creditLimit: true, paymentDay: true, annualRate: true },
+      select: {
+        name: true,
+        currentDebt: true,
+        creditLimit: true,
+        paymentDay: true,
+        annualRate: true,
+      },
     }),
     prisma.category.findMany({ where: { userId }, select: { id: true, name: true } }),
   ]);

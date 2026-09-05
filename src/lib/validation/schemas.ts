@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHAT_ROUTES } from "@/lib/chat-routes";
 
 /** Todo lo que llega del parsing en lenguaje natural se valida antes de persistir. */
 export const amountSchema = z
@@ -64,6 +65,13 @@ export const chatSchema = z.object({
    * en él sin comprobar antes que la conversación es del usuario de la sesión.
    */
   sessionId: z.string().min(1).max(40).optional(),
+  /**
+   * Desde qué vista se abrió el chat. Es una pista de intención, no una
+   * credencial: no abre acceso a nada que el usuario no tuviera ya, solo cambia
+   * el foco del prompt y recorta el catálogo de herramientas. Por eso se acepta
+   * del cliente sin más ceremonia que el enum.
+   */
+  route: z.enum(CHAT_ROUTES).optional(),
   messages: z
     .array(
       z.object({
